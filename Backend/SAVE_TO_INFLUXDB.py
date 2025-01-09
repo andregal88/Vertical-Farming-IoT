@@ -96,17 +96,17 @@ def run_migrations():
         table_name="Alerts",
         measurement="Alerts",
         query="SELECT * FROM Alerts",
-        tags=["sensor_id", "alertType"],
-        fields=[],
+        tags=["sensor_id","alertTime"],
+        fields=["alertType"],
         timestamp_field="alertTime"
     )
 
-    # Migrate sensorMaintenance table
+    # # Migrate sensorMaintenance table
     migrate_table(
         table_name="sensorMaintenance",
         measurement="sensorMaintenance",
         query="SELECT * FROM sensorMaintenance",
-        tags=["sensor_id", "status"],
+        tags=["sensor_id", "status", "datetime_review" ],
         fields=["review"],
         timestamp_field="datetime_review"
     )
