@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Link from 'next/link'
 import { Switch } from "@/components/ui/switch"
@@ -58,6 +59,8 @@ export default function DevicesAndSensorsPage() {
   const [ecLevel, setECLevel] = useState(1.5)
   const [phControl, setPHControl] = useState(true)
   const [ecControl, setECControl] = useState(true)
+  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false)
+  const [itemToRemove, setItemToRemove] = useState<{ type: 'room' | 'device', id: string | number } | null>(null)
 
 
   const addRoom = () => {
@@ -71,8 +74,12 @@ export default function DevicesAndSensorsPage() {
     }
   }
 
-  const removeRoom = (id: number) => {
-    setRooms(rooms.filter(room => room.id !== id))
+  const removeRoom = () => {
+    if (itemToRemove && itemToRemove.type === 'room') {
+      setRooms(rooms.filter(room => room.id !== itemToRemove.id))
+      setIsRemoveDialogOpen(false)
+      setItemToRemove(null)
+    }
   }
 
   const addSoil = () => {
@@ -107,6 +114,14 @@ export default function DevicesAndSensorsPage() {
     device.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
     device.location.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  const removeDevice = () => {
+    if (itemToRemove && itemToRemove.type === 'device') {
+      setDevices(devices.filter(device => device.id !== itemToRemove.id))
+      setIsRemoveDialogOpen(false)
+      setItemToRemove(null)
+    }
+  }
 
   useEffect(() => {
     // Simulate real-time data updates
@@ -247,9 +262,16 @@ export default function DevicesAndSensorsPage() {
                               </DialogFooter>
                             </DialogContent>
                           </Dialog>
-                          <Button variant="ghost" className="text-red-500" onClick={() => {
-                            setDevices(devices.filter(d => d.id !== device.id));
-                          }}>Delete</Button>
+                          <Button 
+                            variant="ghost" 
+                            className="text-red-500" 
+                            onClick={() => {
+                              setItemToRemove({ type: 'device', id: device.id })
+                              setIsRemoveDialogOpen(true)
+                            }}
+                          >
+                            Delete
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -318,10 +340,19 @@ export default function DevicesAndSensorsPage() {
                         <TableCell>{room.cropType}</TableCell>
                         <TableCell>
                           <div className="flex space-x-2">
-                            <Button variant="ghost" onClick={() => removeRoom(room.id)}>Remove</Button>
                             <Link href={`/rooms/${room.id}`} passHref>
                               <Button variant="ghost">View Shelves</Button>
                             </Link>
+                            <Button 
+                              variant="ghost" 
+                              className="text-red-500 hover:text-red-700 hover:bg-red-100" 
+                              onClick={() => {
+                                setItemToRemove({ type: 'room', id: room.id })
+                                setIsRemoveDialogOpen(true)
+                              }}
+                            >
+                              Remove
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -633,6 +664,25 @@ export default function DevicesAndSensorsPage() {
             </Card>
           </TabsContent>
         </Tabs>
+        <Dialog open={isRemoveDialogOpen} onOpenChange={setIsRemoveDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Removal</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to remove this {itemToRemove?.type}? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsRemoveDialogOpen(false)}>Cancel</Button>
+              <Button 
+                variant="destructive" 
+                onClick={() => itemToRemove?.type === 'room' ? removeRoom() : removeDevice()}
+              >
+                Remove
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   )

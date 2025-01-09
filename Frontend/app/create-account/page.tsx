@@ -15,6 +15,7 @@ export default function CreateAccountPage() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [userType, setUserType] = useState('user')
   const router = useRouter()
 
@@ -24,23 +25,25 @@ export default function CreateAccountPage() {
       alert('Passwords do not match')
       return
     }
-    // Here you would typically make an API call to create the account
-    console.log('Creating account:', { email, userType })
+    // Simulate saving the new account
+    const newAccount = { email, userType }
+    localStorage.setItem('newAccount', JSON.stringify(newAccount))
+    console.log('Creating account:', newAccount)
     alert('Account created successfully!')
     router.push('/sign-in')
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-400 to-blue-500">
+    <div className="min-h-screen flex items-center justify-center bg-green-100">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-3xl font-bold text-center">Create an Account</CardTitle>
-          <CardDescription className="text-center">Join Agrisense to manage your vertical farm</CardDescription>
+          <CardTitle className="text-3xl font-bold text-center text-green-800">Create an Account</CardTitle>
+          <CardDescription className="text-center text-green-600">Join Agrisense to manage your vertical farm</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-green-700">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -48,11 +51,11 @@ export default function CreateAccountPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full"
+                className="w-full border-green-300 focus:border-green-500 focus:ring-green-500"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-green-700">Password</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -61,12 +64,12 @@ export default function CreateAccountPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full pr-10"
+                  className="w-full pr-10 border-green-300 focus:border-green-500 focus:ring-green-500"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-green-600 hover:text-green-800"
                 >
                   {showPassword ? (
                     <EyeOffIcon className="h-5 w-5" />
@@ -77,37 +80,50 @@ export default function CreateAccountPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="Confirm your password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                className="w-full"
-              />
+              <Label htmlFor="confirmPassword" className="text-green-700">Confirm Password</Label>
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Confirm your password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  className="w-full pr-10 border-green-300 focus:border-green-500 focus:ring-green-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-green-600 hover:text-green-800"
+                >
+                  {showConfirmPassword ? (
+                    <EyeOffIcon className="h-5 w-5" />
+                  ) : (
+                    <EyeIcon className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
             </div>
             <div className="space-y-2">
-              <Label>Account Type</Label>
+              <Label className="text-green-700">Account Type</Label>
               <RadioGroup value={userType} onValueChange={setUserType} className="flex space-x-4">
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="user" id="user" />
-                  <Label htmlFor="user">User</Label>
+                  <Label htmlFor="user" className="text-green-700">User</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="admin" id="admin" />
-                  <Label htmlFor="admin">Admin</Label>
+                  <Label htmlFor="admin" className="text-green-700">Admin</Label>
                 </div>
               </RadioGroup>
             </div>
-            <Button type="submit" className="w-full">Create Account</Button>
+            <Button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white">Create Account</Button>
           </form>
         </CardContent>
         <CardFooter className="flex justify-center">
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-green-700">
             Already have an account?{' '}
-            <Link href="/sign-in" className="text-blue-600 hover:underline">
+            <Link href="/sign-in" className="text-green-600 hover:text-green-800 hover:underline">
               Sign in here
             </Link>
           </div>

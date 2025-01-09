@@ -1,4 +1,4 @@
-// File: /Users/andreasgalanis/Desktop/agrisense-dashboard/app/sign-in/page.tsx
+// File: /Users/andreasgalanis/Desktop/agrisense-dashboard/Frontend/app/sign-in/page.tsx
 import * as entry from '../../../../app/sign-in/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

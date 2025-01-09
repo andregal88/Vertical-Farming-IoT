@@ -4,12 +4,7 @@ interface User {
   id: string
   email: string
   name: string
-}
-
-const fakeUser: User = {
-  id: '1',
-  email: 'admin@example.com',
-  name: 'Admin User',
+  userType?: string
 }
 
 export function useAuth() {
@@ -17,11 +12,10 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const token = localStorage.getItem('authToken')
-      if (token) {
-        // In a real app, you'd verify the token with your API
-        setUser(fakeUser)
+    const checkAuth = () => {
+      const storedUser = localStorage.getItem('user')
+      if (storedUser) {
+        setUser(JSON.parse(storedUser))
       }
       setLoading(false)
     }
@@ -29,18 +23,43 @@ export function useAuth() {
   }, [])
 
   const login = async (email: string, password: string) => {
-    // In a real app, you'd make an API call to verify credentials
-    if (email === 'admin@example.com' && password === 'password') {
-      const fakeToken = 'fake-jwt-token'
-      localStorage.setItem('authToken', fakeToken)
-      setUser(fakeUser)
+    // Check if there's a new account
+    const newAccountJson = localStorage.getItem('newAccount')
+    let userToLogin: User | null = null
+
+    if (newAccountJson) {
+      const newAccount = JSON.parse(newAccountJson)
+      if (email === newAccount.email && password === 'password') {
+        userToLogin = {
+          id: Date.now().toString(),
+          email: newAccount.email,
+          name: newAccount.email.split('@')[0],
+          userType: newAccount.userType
+        }
+      }
+    }
+
+    // Existing login logic
+    if (!userToLogin && email === 'admin@example.com' && password === 'password') {
+      userToLogin = {
+        id: '1',
+        email: 'admin@example.com',
+        name: 'Admin User',
+        userType: 'admin'
+      }
+    }
+
+    if (userToLogin) {
+      localStorage.setItem('user', JSON.stringify(userToLogin))
+      setUser(userToLogin)
       return true
     }
+
     return false
   }
 
   const logout = () => {
-    localStorage.removeItem('authToken')
+    localStorage.removeItem('user')
     setUser(null)
   }
 
