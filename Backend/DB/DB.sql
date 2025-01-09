@@ -61,6 +61,10 @@ CREATE TABLE `Alerts`(
     `alertType` VARCHAR(255) NOT NULL,
     `alertTime` DATETIME NOT NULL
 );
+CREATE TABLE 'Timestamps'(
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `timestamp` DATETIME NOT NULL
+);
 ALTER TABLE
     `userRoles` ADD CONSTRAINT `userroles_role_id_foreign` FOREIGN KEY(`role_id`) REFERENCES `Role`(`id`);
 ALTER TABLE
