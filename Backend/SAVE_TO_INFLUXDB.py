@@ -2,6 +2,7 @@ import time
 import mysql.connector
 from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
+from datetime import datetime
 
 # MySQL connection details
 mysql_config = {
@@ -19,24 +20,27 @@ influxdb_config = {
     'bucket': 'SensorsData'
 }
 
-# Last processed timestamps for each table
-last_processed = {
-    "sensorMaintenance": None,
-    "dataHistory": None,
-    "Alerts": None
-}
-
 def fetch_mysql_data(query):
     """Fetch data from MySQL."""
     try:
         connection = mysql.connector.connect(**mysql_config)
         cursor = connection.cursor()
         cursor.execute(query)
-        rows = cursor.fetchall()
-        column_names = [column[0] for column in cursor.description]
-        cursor.close()
-        connection.close()
-        return rows, column_names
+
+        # For SELECT queries, fetch the data and column names
+        if query.strip().upper().startswith("SELECT"):
+            rows = cursor.fetchall()
+            column_names = [column[0] for column in cursor.description]
+            connection.commit()
+            cursor.close()
+            connection.close()
+            return rows, column_names
+        else:
+            # For non-SELECT queries (like INSERT), just commit and return None
+            connection.commit()
+            cursor.close()
+            connection.close()
+            return None, None
     except mysql.connector.Error as err:
         print(f"Error: {err}")
         return None, None
@@ -56,51 +60,84 @@ def write_to_influxdb(data, column_names, measurement_name):
         write_api.write(bucket=influxdb_config['bucket'], record=point)
     client.close()
 
-def get_last_processed_condition(table, timestamp_column):
-    """Build a WHERE clause to fetch only new data based on the last processed timestamp."""
-    if last_processed[table]:
-        return f"WHERE {timestamp_column} > '{last_processed[table]}'"
-    return ""
+def get_last_processed_timestamp():
+    """Get the last processed timestamp from the Timestamps table."""
+    query = "SELECT MAX(timestamp) FROM Timestamps"
+    data, _ = fetch_mysql_data(query)
+    if data and data[0][0]:
+        return data[0][0]
+    return None
 
-def update_last_processed(table, data, column_names, timestamp_column):
-    """Update the last processed timestamp for the given table."""
-    if data:
-        timestamps = [row[column_names.index(timestamp_column)] for row in data]
-        if timestamps:
-            last_processed[table] = max(timestamps)  # Update to the most recent timestamp
+def insert_timestamp(timestamp):
+    """Insert a new timestamp into the Timestamps table."""
+    query = f"INSERT INTO Timestamps (timestamp) VALUES ('{timestamp}')"
+    fetch_mysql_data(query)
 
 if __name__ == "__main__":
+    # Get the last processed timestamp
+    last_processed_timestamp = get_last_processed_timestamp()
+
+    # Current timestamp (used for inserting a new record into Timestamps table)
+    current_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
     # Mapping of tables to timestamp columns
     timestamp_columns = {
-        "sensorMaintenance": "timestamp",
         "dataHistory": "timestamp",
+        "sensorMaintenance": "timestamp",
         "Alerts": "alertTime"
     }
 
     # Polling interval in seconds
-    polling_interval = 10  # Fetch new data every 10 seconds
+    polling_interval = 10
 
+    # Fetch historical data for the first time (only the data between last_processed_timestamp and current_timestamp)
+    for table, timestamp_column in timestamp_columns.items():
+        print(f"Fetching historical data for table: {table}")
+
+        if last_processed_timestamp:
+            query = f"SELECT * FROM {table} WHERE {timestamp_column} > '{last_processed_timestamp}' AND {timestamp_column} <= '{current_timestamp}'"
+        else:
+            # If there is no last processed timestamp, this part can be skipped or handled differently (if applicable)
+            query = f"SELECT * FROM {table} WHERE {timestamp_column} <= '{current_timestamp}'"
+
+        # Fetch data from MySQL
+        data, column_names = fetch_mysql_data(query)
+        if data and column_names:
+            print(f"Fetched {len(data)} historical rows from {table}.")
+            write_to_influxdb(data, column_names, table)
+        else:
+            print(f"No historical data for {table} or an error occurred.")
+
+    # Insert the current timestamp into the Timestamps table
+    insert_timestamp(current_timestamp)
+    print(f"Inserted new timestamp: {current_timestamp}")
+
+    # After processing the historical data, continue polling for new data
     while True:
         for table, timestamp_column in timestamp_columns.items():
             print(f"Fetching new data for table: {table}")
-            
-            # Build query with last processed timestamp
-            condition = get_last_processed_condition(table, timestamp_column)
-            query = f"SELECT * FROM {table} {condition}"
 
-            # Fetch data from MySQL
+            # Build query with last processed timestamp to fetch only new data
+            if last_processed_timestamp:
+                query = f"SELECT * FROM {table} WHERE {timestamp_column} > '{last_processed_timestamp}'"
+            else:
+                query = f"SELECT * FROM {table}"
+
+            # Fetch new data from MySQL
             data, column_names = fetch_mysql_data(query)
             if data and column_names:
                 print(f"Fetched {len(data)} new rows from {table}.")
-                
-                # Write data to InfluxDB
                 write_to_influxdb(data, column_names, table)
 
                 # Update last processed timestamp
-                update_last_processed(table, data, column_names, timestamp_column)
-                print(f"Updated last processed timestamp for {table}.")
+                last_processed_timestamp = current_timestamp
             else:
                 print(f"No new data for {table} or an error occurred.")
+
+        # Insert the current timestamp into the Timestamps table again
+        current_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        insert_timestamp(current_timestamp)
+        print(f"Inserted new timestamp: {current_timestamp}")
 
         # Wait before polling again
         print(f"Sleeping for {polling_interval} seconds...")
