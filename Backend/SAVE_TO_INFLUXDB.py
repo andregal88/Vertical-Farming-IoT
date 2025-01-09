@@ -1,13 +1,9 @@
-import requests
-from datetime import datetime
-import re
 import time
-from influxdb_client import InfluxDBClient, Point, WritePrecision
-from influxdb_client.client.write_api import SYNCHRONOUS       
 import mysql.connector
+from influxdb_client import InfluxDBClient, Point
+from influxdb_client.client.write_api import SYNCHRONOUS
 
-
-# MySQL Database connection details
+# MySQL connection details
 mysql_config = {
     'host': 'localhost',
     'user': 'root',
@@ -15,13 +11,7 @@ mysql_config = {
     'database': 'test_db'
 }
 
-
-# FIWARE Orion Context Broker URL
-orion_url = "http://150.140.186.118:1026/v2/entities"
-fiware_service_path = "/sensorsdata"
-
-
-# InfluxDB Configuration
+# InfluxDB connection details
 influxdb_config = {
     'url': 'http://labserver.sense-campus.gr:8086',
     'token': 'KXH1kJtKHbEiYA3cAVUt-BW1wTilFYxvrHPiITUiEjpcW4wTAIY1g-tKaNkI37Md96N2B-6v3BK269fFAA1Uaw==',
@@ -29,124 +19,89 @@ influxdb_config = {
     'bucket': 'SensorsData'
 }
 
+# Last processed timestamps for each table
+last_processed = {
+    "sensorMaintenance": None,
+    "dataHistory": None,
+    "Alerts": None
+}
 
-def fetch_data_from_mysql(query):
-    """Fetch data from MySQL database based on the given query."""
-    connection = mysql.connector.connect(**mysql_config)
-    cursor = connection.cursor(dictionary=True)
+def fetch_mysql_data(query):
+    """Fetch data from MySQL."""
+    try:
+        connection = mysql.connector.connect(**mysql_config)
+        cursor = connection.cursor()
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        column_names = [column[0] for column in cursor.description]
+        cursor.close()
+        connection.close()
+        return rows, column_names
+    except mysql.connector.Error as err:
+        print(f"Error: {err}")
+        return None, None
 
-    cursor.execute(query)
-    data = cursor.fetchall()
-
-    cursor.close()
-    connection.close()
-
-    return data
-
-def write_to_influxdb(measurement, data, tags=None, fields=None, timestamp_field=None):
+def write_to_influxdb(data, column_names, measurement_name):
     """Write data to InfluxDB."""
-    client = InfluxDBClient(url=influxdb_config['url'], token=influxdb_config['token'])
+    client = InfluxDBClient(url=influxdb_config['url'], token=influxdb_config['token'], org=influxdb_config['org'])
     write_api = client.write_api(write_options=SYNCHRONOUS)
 
-    for record in data:
-        point = Point(measurement)
-
-        # Add tags
-        if tags:
-            for tag in tags:
-                point = point.tag(tag, record[tag])
-
-        # Add fields
-        if fields:
-            for field in fields:
-                point = point.field(field, float(record[field]) if isinstance(record[field], (int, float)) else record[field])
-
-        # Add timestamp
-        if timestamp_field:
-            point = point.time(record[timestamp_field], WritePrecision.NS)
-
-        write_api.write(bucket=influxdb_config['bucket'], org=influxdb_config['org'], record=point)
-
+    for row in data:
+        point = Point(measurement_name)
+        for i, col in enumerate(column_names):
+            if isinstance(row[i], (int, float)):
+                point.field(col, row[i])
+            else:
+                point.tag(col, str(row[i]))
+        write_api.write(bucket=influxdb_config['bucket'], record=point)
     client.close()
 
-def migrate_table(table_name, measurement, query, tags=None, fields=None, timestamp_field=None):
-    """Migrate a specific table to InfluxDB."""
-    print(f"Fetching data from {table_name}...")
-    data = fetch_data_from_mysql(query)
+def get_last_processed_condition(table, timestamp_column):
+    """Build a WHERE clause to fetch only new data based on the last processed timestamp."""
+    if last_processed[table]:
+        return f"WHERE {timestamp_column} > '{last_processed[table]}'"
+    return ""
 
-    print(f"Fetched {len(data)} records from {table_name}. Writing to InfluxDB...")
-    write_to_influxdb(measurement, data, tags, fields, timestamp_field)
-
-    print(f"Data migration for {table_name} complete.")
-
-def run_migrations():
-    """Run all data migrations."""
-    # Migrate dataHistory table
-    migrate_table(
-        table_name="dataHistory",
-        measurement="dataHistory",
-        query="SELECT * FROM dataHistory",
-        tags=["sensor_id"],
-        fields=["value"],
-        timestamp_field="timestamp"
-    )
-
-    # Migrate Alerts table
-    migrate_table(
-        table_name="Alerts",
-        measurement="Alerts",
-        query="SELECT * FROM Alerts",
-        tags=["sensor_id","alertTime"],
-        fields=["alertType"],
-        timestamp_field="alertTime"
-    )
-
-    # # Migrate sensorMaintenance table
-    migrate_table(
-        table_name="sensorMaintenance",
-        measurement="sensorMaintenance",
-        query="SELECT * FROM sensorMaintenance",
-        tags=["sensor_id", "status", "datetime_review" ],
-        fields=["review"],
-        timestamp_field="datetime_review"
-    )
-
-
-
-    print("All data migrations completed.")
-
-def main():
-    """Main function to run migrations periodically."""
-    polling_interval = 60  
-
-    print(f"Starting periodic migrations every {polling_interval} seconds...")
-    while True:
-        run_migrations()
-        print(f"Waiting for the next poll in {polling_interval} seconds...")
-        time.sleep(polling_interval)
+def update_last_processed(table, data, column_names, timestamp_column):
+    """Update the last processed timestamp for the given table."""
+    if data:
+        timestamps = [row[column_names.index(timestamp_column)] for row in data]
+        if timestamps:
+            last_processed[table] = max(timestamps)  # Update to the most recent timestamp
 
 if __name__ == "__main__":
-    main()
+    # Mapping of tables to timestamp columns
+    timestamp_columns = {
+        "sensorMaintenance": "timestamp",
+        "dataHistory": "timestamp",
+        "Alerts": "alertTime"
+    }
 
+    # Polling interval in seconds
+    polling_interval = 10  # Fetch new data every 10 seconds
 
-# def delete_measurement(measurement_name):
-#     """Delete a measurement in InfluxDB."""
-#     client = InfluxDBClient(url=influxdb_config['url'], token=influxdb_config['token'])
-#     delete_api = client.delete_api()
+    while True:
+        for table, timestamp_column in timestamp_columns.items():
+            print(f"Fetching new data for table: {table}")
+            
+            # Build query with last processed timestamp
+            condition = get_last_processed_condition(table, timestamp_column)
+            query = f"SELECT * FROM {table} {condition}"
 
-#     # Delete data from the specified measurement
-#     start = "1970-01-01T00:00:00Z"
-#     stop = "2100-01-01T00:00:00Z"
-#     delete_api.delete(
-#         start=start,
-#         stop=stop,
-#         predicate=f'_measurement="{measurement_name}"',
-#         bucket=influxdb_config['bucket'],
-#         org=influxdb_config['org']
-#     )
+            # Fetch data from MySQL
+            data, column_names = fetch_mysql_data(query)
+            if data and column_names:
+                print(f"Fetched {len(data)} new rows from {table}.")
+                
+                # Write data to InfluxDB
+                write_to_influxdb(data, column_names, table)
 
-#     print(f"Measurement '{measurement_name}' deleted.")
-#     client.close()
+                # Update last processed timestamp
+                update_last_processed(table, data, column_names, timestamp_column)
+                print(f"Updated last processed timestamp for {table}.")
+            else:
+                print(f"No new data for {table} or an error occurred.")
 
-# # Example: Delete 'dataHistory' measurement
-# delete_measurement("dataHistory")
+        # Wait before polling again
+        print(f"Sleeping for {polling_interval} seconds...")
+        time.sleep(polling_interval)
