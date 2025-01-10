@@ -19,7 +19,7 @@ def get_last_data():
     sensor_id = request.args.get('sensor_id', type=int)
 
     if not sensor_id:
-        return jsonify({"error": "sensor_id parameter is required"}), 400
+        return "sensor_id parameter is required", 400
 
     try:
         # Connect to the database
@@ -28,7 +28,7 @@ def get_last_data():
 
         # Query to fetch the latest data for the given sensor_id
         query = """
-        SELECT * FROM dataHistory 
+        SELECT value FROM dataHistory 
         WHERE sensor_id = %s
         ORDER BY timestamp DESC
         LIMIT 1
@@ -40,13 +40,13 @@ def get_last_data():
 
         # Check if data is found
         if not data:
-            return jsonify({"message": "No data found for the given sensor_id"}), 404
+            return "No data found for the given sensor_id", 404
 
-        # Return the data in JSON format
-        return jsonify({"data": data}), 200
+        # Return the value directly
+        return str(data['value']), 200
 
     except Error as e:
-        return jsonify({"error": f"Database error: {str(e)}"}), 500
+        return f"Database error: {str(e)}", 500
 
     finally:
         # Close the cursor and the connection
