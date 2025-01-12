@@ -164,8 +164,8 @@ def connect_db():
         connection = mysql.connector.connect(
             host='localhost',
             user='root',
-            password='QifsaRopt1!',
-            database='test_db'
+            password='1234',
+            database='iot_db'
         )
         return connection
     except mysql.connector.Error as err:

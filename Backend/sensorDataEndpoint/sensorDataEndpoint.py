@@ -9,8 +9,8 @@ def get_db_connection():
     return mysql.connector.connect(
         host="localhost",           # Your MySQL host
         user="root",                # Your MySQL user
-        password="QifsaRopt1!",                # Your MySQL password
-        database="test_db"     # Your database name
+        password="1234",                # Your MySQL password
+        database="iot_db"     # Your database name
     )
 
 @app.route('/get_last_data', methods=['GET'])

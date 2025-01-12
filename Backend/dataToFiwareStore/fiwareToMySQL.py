@@ -12,8 +12,8 @@ fiware_service_path = "/sensorsdata"
 mysql_config = {
     'host': 'localhost',
     'user': 'root',
-    'password': 'QifsaRopt1!',
-    'database': 'test_db'
+    'password': '1234',
+    'database': 'iot_db'
 }
 
 # Function to fetch data from FIWARE Orion Context Broker

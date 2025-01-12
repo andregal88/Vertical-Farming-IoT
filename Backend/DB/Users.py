@@ -5,8 +5,8 @@ import getpass
 db_config = {
     'host': 'localhost',        # MySQL server address 
     'user': 'root',             # MySQL username
-    'password': 'QifsaRopt1!',  # MySQL password 
-    'database': 'test_db'       # Database name 
+    'password': '1234',  # MySQL password 
+    'database': 'iot_db'       # Database name 
 }
 
 # Function to connect to the database

@@ -8,8 +8,8 @@ app = Flask(__name__)
 db_config = {
     'host': 'localhost',        
     'user': 'root',             
-    'password': 'QifsaRopt1!',  
-    'database': 'test_db'       
+    'password': '1234',  
+    'database': 'iot_db'       
 }
 
 # Function to connect to the database
