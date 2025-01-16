@@ -34,6 +34,7 @@ export default function LogsPage() {
     fetchLogs()
   }, [])
 
+
   const filteredLogs = logs.filter(log => 
     (log.review.toLowerCase().includes(searchTerm.toLowerCase()) ||
      log.sensor_id.toString().includes(searchTerm)) &&
@@ -51,9 +52,9 @@ export default function LogsPage() {
 
   const handleExportLogs = () => {
     const csvContent = [
-      ['Datetime Review', 'Sensor ID', 'Review', 'Status'],
+      ['Timestamp', 'Sensor ID', 'Review', 'Datetime Review', 'Status'],
       ...filteredLogs.map(log => [
-        log.datetime_review, log.sensor_id, log.review, log.status
+        log.timestamp, log.sensor_id, log.review, log.datetime_review, log.status
       ])
     ].map(e => e.join(",")).join("\n")
 
@@ -90,9 +91,9 @@ export default function LogsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="normal">Normal</SelectItem>
-                    <SelectItem value="warning">Warning</SelectItem>
-                    <SelectItem value="critical">Critical</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="failed">Failed</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -101,20 +102,20 @@ export default function LogsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Datetime Review</TableHead>
+                  <TableHead>Timestamp</TableHead>
                   <TableHead>Sensor ID</TableHead>
                   <TableHead>Review</TableHead>
-                  {/* <TableHead>Datetime Review</TableHead> */}
+                  <TableHead>Datetime Review</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredLogs.map((log) => (
                   <TableRow key={log.id}>
-                    <TableCell>{log.datetime_review}</TableCell>
+                    <TableCell>{log.timestamp}</TableCell>
                     <TableCell>{log.sensor_id}</TableCell>
                     <TableCell>{log.review}</TableCell>
-                    
+                    <TableCell>{log.datetime_review}</TableCell>
                     <TableCell>
                       <Badge className={getLogTypeColor(log.status)}>
                         {log.status}

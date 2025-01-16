@@ -1,115 +1,144 @@
-'use client';
+'use client'
 
-import { useState, useEffect } from 'react';
-import { Header } from '@/components/header';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import axios from 'axios';
+import { useState, useEffect } from 'react'
+import { Header } from "@/components/header"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import axios from 'axios'  // Import axios
 
 export default function MaintenancePage() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSensor, setSelectedSensor] = useState<string | null>(null);
-  const [maintenanceDate, setMaintenanceDate] = useState('');
-  const [maintenanceNotes, setMaintenanceNotes] = useState('');
-  const [status, setStatus] = useState('');
-  const [sensors, setSensors] = useState<any[]>([]); // Define the array type
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [inputValue, setInputValue] = useState<string>('');
-  const [sensorSearchTerm, setSensorSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedSensor, setSelectedSensor] = useState<string | null>(null)
+  const [maintenanceDate, setMaintenanceDate] = useState('')
+  const [maintenanceNotes, setMaintenanceNotes] = useState('')
+  const [sensors, setSensors] = useState([])  // Start with an empty array
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   // Fetch data from API when the component mounts
   useEffect(() => {
-    axios
-      .get('http://127.0.0.1:5001/api/sensors')
-      .then((response) => {
-        setSensors(response.data); // Set sensors state with API data
+    axios.get('http://127.0.0.1:5001/api/sensors')
+      .then(response => {
+        setSensors(response.data)  // Set sensors state with API data
       })
-      .catch((error) => {
-        console.error('Error fetching sensors:', error);
-      });
-  }, []);
+      .catch(error => {
+        console.error("Error fetching sensors:", error)
+      })
+  }, [])
 
-  const filteredSensors = sensors.filter(
-    (sensor) =>
-      (sensor.name && sensor.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (sensor.type && sensor.type.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (sensor.location && sensor.location.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (sensor.status && sensor.status.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (sensor.lastMaintenance && sensor.lastMaintenance.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredSensors = sensors.filter(sensor => 
+    sensor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    sensor.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    sensor.location.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'good':
-        return 'bg-green-500';
-      case 'critical':
-        return 'bg-yellow-500';
-      case 'warning':
-        return 'bg-red-500';
-      default:
-        return '';
+      case 'normal': return 'bg-green-500'
+      case 'warning': return 'bg-yellow-500'
+      case 'critical': return 'bg-red-500'
+      default: return 'bg-gray-500'
     }
-  };
+  }
 
-  const handleAddMaintenanceLog = () => {
-    // Handle adding maintenance log logic here
-    setIsDialogOpen(false);
-  };
+  const handleMaintenanceSubmit = () => {
+    if (selectedSensor && maintenanceDate) {
+      // Update the sensor's last maintenance date in the local state
+      setSensors(sensors.map(sensor => 
+        sensor.name === selectedSensor 
+          ? { ...sensor, lastMaintenance: maintenanceDate, status: 'Good' } 
+          : sensor
+      ))
 
-  const filteredSensorOptions = sensors.filter((sensor) =>
-    sensor.name.toLowerCase().includes(sensorSearchTerm.toLowerCase())
-  );
+      // Reset form fields
+      setSelectedSensor(null)
+      setMaintenanceDate('')
+      setMaintenanceNotes('')
+
+      // Close the dialog (you'll need to add state for this)
+      setIsDialogOpen(false)
+
+      // Show a success message
+      alert(`Maintenance logged for ${selectedSensor} on ${maintenanceDate}`)
+    } else {
+      alert("Please select a sensor and enter a maintenance date.")
+    }
+  }
 
   return (
-    <div>
+    <div className="min-h-screen bg-background">
       <Header />
-      <main>
+      <main className="container mx-auto py-6">
+        <h1 className="text-3xl font-bold mb-6">Sensor Maintenance</h1>
         <Card>
           <CardHeader>
-            <CardTitle>Sensor Maintenance</CardTitle>
-            <CardDescription>Manage sensor maintenance logs</CardDescription>
+            <CardTitle>Sensor Maintenance Schedule</CardTitle>
+            <CardDescription>View and manage sensor maintenance for vertical farming systems</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center space-x-4">
-              <Input
-                type="text"
-                placeholder="Search sensors"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <Button onClick={() => setIsDialogOpen(true)}>Add Maintenance Log</Button>
+            <div className="flex justify-between items-center mb-4">
+              <div className="w-1/3">
+                <Label htmlFor="search">Search Sensors</Label>
+                <Input
+                  id="search"
+                  placeholder="Search by name, type, or location"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button onClick={() => setIsDialogOpen(true)}>Log Maintenance</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Log Maintenance</DialogTitle>
+                    <DialogDescription>Record maintenance performed on a sensor</DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="sensorSelect" className="text-right">Sensor</Label>
+                      <Select value={selectedSensor || ''} onValueChange={setSelectedSensor} className="col-span-3">
+                        <SelectTrigger id="sensorSelect">
+                          <SelectValue placeholder="Select a sensor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sensors.map((sensor) => (
+                            <SelectItem key={sensor.id} value={sensor.name}>{sensor.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="maintenanceDate" className="text-right">Date</Label>
+                      <Input
+                        id="maintenanceDate"
+                        type="date"
+                        value={maintenanceDate}
+                        onChange={(e) => setMaintenanceDate(e.target.value)}
+                        className="col-span-3"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="maintenanceNotes" className="text-right">Notes</Label>
+                      <Input
+                        id="maintenanceNotes"
+                        value={maintenanceNotes}
+                        onChange={(e) => setMaintenanceNotes(e.target.value)}
+                        className="col-span-3"
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button onClick={handleMaintenanceSubmit}>Submit</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
             <Table>
               <TableHeader>
@@ -117,8 +146,9 @@ export default function MaintenancePage() {
                   <TableHead>Name</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Location</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead>Last Maintenance</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -127,75 +157,22 @@ export default function MaintenancePage() {
                     <TableCell>{sensor.name}</TableCell>
                     <TableCell>{sensor.type}</TableCell>
                     <TableCell>{sensor.location}</TableCell>
+                    <TableCell>{sensor.lastMaintenance}</TableCell>
                     <TableCell>
                       <Badge className={getStatusColor(sensor.status)}>
                         {sensor.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>{sensor.lastMaintenance}</TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="sm">View Details</Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </CardContent>
         </Card>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Maintenance Log</DialogTitle>
-              <DialogDescription>
-                Fill in the details below to add a maintenance log.
-              </DialogDescription>
-            </DialogHeader>
-            <Label htmlFor="sensor">Sensor</Label>
-            {/* <Input
-              type="text"
-              placeholder="Search sensor"
-              value={sensorSearchTerm}
-              onChange={(e) => setSensorSearchTerm(e.target.value)}
-            /> */}
-            <Select onValueChange={setSelectedSensor}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a sensor" />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredSensorOptions.map((sensor) => (
-                  <SelectItem key={sensor.id} value={sensor.id}>
-                    {sensor.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select onValueChange={setStatus}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select sensor status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="good">Good</SelectItem>
-              <SelectItem value="critical">Critical</SelectItem>
-              <SelectItem value="warning">Warning</SelectItem>
-            </SelectContent>
-          </Select>
-            <Label htmlFor="date">Maintenance Date</Label>
-            <Input
-              type="date"
-              id="date"
-              value={maintenanceDate}
-              onChange={(e) => setMaintenanceDate(e.target.value)}
-            />
-            {/* <Label htmlFor="notes">Maintenance Notes</Label>
-            <Input
-              type="text"
-              id="notes"
-              value={maintenanceNotes}
-              onChange={(e) => setMaintenanceNotes(e.target.value)}
-            /> */}
-            <DialogFooter>
-              <Button onClick={handleAddMaintenanceLog}>Add Log</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </main>
     </div>
-  );
+  )
 }

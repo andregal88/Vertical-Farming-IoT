@@ -29,7 +29,7 @@ export default function DevicesAndSensorsPage() {
     const fetchDevices = async () => {
       try {
         const response = await axios.get('http://127.0.0.1:5001/api/sensors');
-        // console.log("Fetched Devices:", response.data);  // Log the response data to the console
+        console.log("Fetched Devices:", response.data);  // Log the response data to the console
         setDevices(response.data);  // Update the state with the fetched devices
       } catch (error) {
         console.error("Error fetching devices:", error);
@@ -182,15 +182,6 @@ export default function DevicesAndSensorsPage() {
     }
   }
 
-  const getStatusColor = (type: string) => {
-    switch (type.toLowerCase()) {
-      case 'normal': return 'bg-green-500'
-      case 'warning': return 'bg-yellow-500'
-      case 'critical': return 'bg-red-500'
-      default: return 'bg-gray-500'
-    }
-  }
-
   const updateDeviceStatus = (id, status) => {
     setDevices(devices.map(device => 
       device.id === id ? { ...device, status } : device
@@ -202,7 +193,16 @@ export default function DevicesAndSensorsPage() {
     device.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
     device.location.toLowerCase().includes(searchTerm.toLowerCase())
   )
-
+  
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'normal': return 'bg-green-500'
+      case 'warning': return 'bg-yellow-500'
+      case 'critical': return 'bg-red-500'
+      default: return 'bg-gray-500'
+    }
+  }
+  
   const removeDevice = () => {
     if (itemToRemove && itemToRemove.type === 'device') {
       setDevices(devices.filter(device => device.id !== itemToRemove.id))
@@ -231,18 +231,9 @@ export default function DevicesAndSensorsPage() {
         }
       ])
     }, 5000)
-    
-
 
     return () => clearInterval(interval)
   }, [temperature, humidity, co2Level, phLevel, ecLevel])
-
-  function handleStatusToggle(id: any, status: any): void {
-    // Update the status of the device to Off when Switch is toggled and when switched back to On, fetch the status from the API
-    const newStatus = status === "Off" ? "On" : "Off";
-    updateDeviceStatus(id, newStatus);
-
-  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -274,7 +265,9 @@ export default function DevicesAndSensorsPage() {
                     />
                   </div>
                   <Dialog>
-     
+                    <DialogTrigger asChild>
+                      <Button>Add New Device</Button>
+                    </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
                         <DialogTitle>Add New Device</DialogTitle>
@@ -312,30 +305,19 @@ export default function DevicesAndSensorsPage() {
     </TableRow>
   </TableHeader>
   <TableBody>
-    
-  {filteredDevices.map((device) => (
-    <TableRow key={device.id}>
-      <TableCell>{device.name}</TableCell>
-      <TableCell>{device.type}</TableCell>
-      <TableCell>{device.location}</TableCell>
-      <TableCell>
-        <Badge className={getStatusColor(device.status)}>
-          {device.status}
-        </Badge>
-      </TableCell>
-      <TableCell>{device.lastValue}</TableCell>
-      <TableCell>
-        {/* Toggle Switch */}
-        <Switch
-          checked={device.status !== "Off"} // Checked if status is not "Off"
-          onCheckedChange={(checked) => handleStatusToggle(device.id, device.status)}
-        />
-      </TableCell>
-    </TableRow>
-  ))}
-</TableBody>
-
-          {/* <Dialog>
+    {filteredDevices.map((device) => (
+      <TableRow key={device.id}>
+        <TableCell>{device.name}</TableCell>
+        <TableCell>{device.type}</TableCell>
+        <TableCell>{device.location}</TableCell>
+        <TableCell>
+            <Badge className={getStatusColor(device.status)}>
+            {device.status}
+          </Badge>
+        </TableCell>
+        <TableCell>{device.lastValue}</TableCell> {/* Display the values */}
+        <TableCell>
+          <Dialog>
             <DialogTrigger asChild>
               <Button variant="ghost" onClick={() => setEditingDevice(device)}>Edit</Button>
             </DialogTrigger>
@@ -369,8 +351,8 @@ export default function DevicesAndSensorsPage() {
                 <Button onClick={() => setEditingDevice(null)}>Close</Button>
               </DialogFooter>
             </DialogContent>
-          </Dialog> */}
-          {/* <Button 
+          </Dialog>
+          <Button 
             variant="ghost" 
             className="text-red-500" 
             onClick={() => {
@@ -379,7 +361,11 @@ export default function DevicesAndSensorsPage() {
             }}
           >
             Delete
-          </Button> */}
+          </Button>
+        </TableCell>
+      </TableRow>
+    ))}
+  </TableBody>
 </Table>
               </CardContent>
             </Card>
