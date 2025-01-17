@@ -19,16 +19,18 @@ import { Slider } from "@/components/ui/slider"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 
+
 export default function DevicesAndSensorsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [rooms, setRooms] = useState([]);
   const [devices, setDevices] = useState([]);  // Initially empty array for devices
+
   
   // Fetch devices from the API
   useEffect(() => {
     const fetchDevices = async () => {
       try {
-        const response = await axios.get('http://127.0.0.1:5001/api/sensors');
+        const response = await axios.get('http://127.0.0.1:5001/sensors');
         console.log("Fetched Devices:", response.data);  // Log the response data to the console
         setDevices(response.data);  // Update the state with the fetched devices
       } catch (error) {
@@ -54,6 +56,182 @@ export default function DevicesAndSensorsPage() {
     fetchRooms();
   }, []); // Empty dependency array ensures the fetch happens once when the component mounts
 
+
+  const [devicesPerPage] = useState(10); // Number of devices per page
+  const [roomsPerPage] = useState(5); // Number of rooms per page
+  
+  const [currentDevicePage, setCurrentDevicePage] = useState(1); // Current page for devices
+  const [currentRoomPage, setCurrentRoomPage] = useState(1); // Current page for rooms
+  
+  const paginateDevices = () => {
+    const startIndex = (currentDevicePage - 1) * devicesPerPage;
+    const endIndex = startIndex + devicesPerPage;
+    return devices.slice(startIndex, endIndex);
+  }
+  
+  const paginateRooms = () => {
+    const startIndex = (currentRoomPage - 1) * roomsPerPage;
+    const endIndex = startIndex + roomsPerPage;
+    return rooms.slice(startIndex, endIndex);
+  }
+  
+  const renderDevicePagination = () => {
+    const totalDevicePages = Math.ceil(devices.length / devicesPerPage);
+  
+    return (
+      <div className="flex items-center justify-center space-x-4 mt-4">
+        {/* First Page Button */}
+        <Button
+          disabled={currentDevicePage === 1}
+          onClick={() => setCurrentDevicePage(1)}
+        >
+          First
+        </Button>
+  
+        {/* Previous Page Button */}
+        <Button
+          disabled={currentDevicePage === 1}
+          onClick={() => setCurrentDevicePage(currentDevicePage - 1)}
+        >
+          Previous
+        </Button>
+  
+        {/* Page Numbers */}
+        <div className="flex gap-2">
+          {/* Display 1st page button if needed */}
+          {currentDevicePage > 3 && (
+            <Button onClick={() => setCurrentDevicePage(1)}>1</Button>
+          )}
+  
+          {/* Display "..." if skipped pages */}
+          {currentDevicePage > 4 && <span className="px-2">...</span>}
+  
+          {/* Display pages around the current page */}
+          {Array.from({ length: 5 }).map((_, index) => {
+            const page = currentDevicePage - 2 + index;
+            // Only render valid page numbers within the range
+            if (page > 0 && page <= totalDevicePages) {
+              return (
+                <Button
+                  key={page}
+                  variant={page === currentDevicePage ? 'outline' : 'default'}
+                  onClick={() => setCurrentDevicePage(page)}
+                >
+                  {page}
+                </Button>
+              );
+            }
+            return null;
+          })}
+  
+          {/* Display "..." if skipped pages */}
+          {currentDevicePage < totalDevicePages - 3 && <span className="px-2">...</span>}
+  
+          {/* Display last page button if needed */}
+          {currentDevicePage < totalDevicePages - 2 && (
+            <Button onClick={() => setCurrentDevicePage(totalDevicePages)}>
+              {totalDevicePages}
+            </Button>
+          )}
+        </div>
+  
+        {/* Next Page Button */}
+        <Button
+          disabled={currentDevicePage === totalDevicePages}
+          onClick={() => setCurrentDevicePage(currentDevicePage + 1)}
+        >
+          Next
+        </Button>
+  
+        {/* Last Page Button */}
+        <Button
+          disabled={currentDevicePage === totalDevicePages}
+          onClick={() => setCurrentDevicePage(totalDevicePages)}
+        >
+          Last
+        </Button>
+      </div>
+    );
+  };
+  
+  const renderRoomPagination = () => {
+    const totalRoomPages = Math.ceil(rooms.length / roomsPerPage);
+  
+    return (
+      <div className="flex items-center justify-center space-x-4 mt-4">
+        {/* First Page Button */}
+        <Button
+          disabled={currentRoomPage === 1}
+          onClick={() => setCurrentRoomPage(1)}
+        >
+          First
+        </Button>
+  
+        {/* Previous Page Button */}
+        <Button
+          disabled={currentRoomPage === 1}
+          onClick={() => setCurrentRoomPage(currentRoomPage - 1)}
+        >
+          Previous
+        </Button>
+  
+        {/* Page Numbers */}
+        <div className="flex gap-2">
+          {/* Display 1st page button if needed */}
+          {currentRoomPage > 3 && (
+            <Button onClick={() => setCurrentRoomPage(1)}>1</Button>
+          )}
+  
+          {/* Display "..." if skipped pages */}
+          {currentRoomPage > 4 && <span className="px-2">...</span>}
+  
+          {/* Display pages around the current page */}
+          {Array.from({ length: 5 }).map((_, index) => {
+            const page = currentRoomPage - 2 + index;
+            // Only render valid page numbers within the range
+            if (page > 0 && page <= totalRoomPages) {
+              return (
+                <Button
+                  key={page}
+                  variant={page === currentRoomPage ? 'outline' : 'default'}
+                  onClick={() => setCurrentRoomPage(page)}
+                >
+                  {page}
+                </Button>
+              );
+            }
+            return null;
+          })}
+  
+          {/* Display "..." if skipped pages */}
+          {currentRoomPage < totalRoomPages - 3 && <span className="px-2">...</span>}
+  
+          {/* Display last page button if needed */}
+          {currentRoomPage < totalRoomPages - 2 && (
+            <Button onClick={() => setCurrentRoomPage(totalRoomPages)}>
+              {totalRoomPages}
+            </Button>
+          )}
+        </div>
+  
+        {/* Next Page Button */}
+        <Button
+          disabled={currentRoomPage === totalRoomPages}
+          onClick={() => setCurrentRoomPage(currentRoomPage + 1)}
+        >
+          Next
+        </Button>
+  
+        {/* Last Page Button */}
+        <Button
+          disabled={currentRoomPage === totalRoomPages}
+          onClick={() => setCurrentRoomPage(totalRoomPages)}
+        >
+          Last
+        </Button>
+      </div>
+    );
+  };
   const [newRoomName, setNewRoomName] = useState('')
   const [newRoomShelves, setNewRoomShelves] = useState('3')
   const [selectedRoom, setSelectedRoom] = useState('')
@@ -91,6 +269,7 @@ export default function DevicesAndSensorsPage() {
   const [newUserId, setNewUserId] = useState('');
   const [newNumberOfShelves, setNewNumberOfShelves] = useState('');
 
+  
   // Fetch crop types when the component mounts
   useEffect(() => {
     const fetchCropTypes = async () => {
@@ -235,6 +414,7 @@ export default function DevicesAndSensorsPage() {
     return () => clearInterval(interval)
   }, [temperature, humidity, co2Level, phLevel, ecLevel])
 
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -264,34 +444,7 @@ export default function DevicesAndSensorsPage() {
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button>Add New Device</Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Add New Device</DialogTitle>
-                        <DialogDescription>Enter the details for the new device.</DialogDescription>
-                      </DialogHeader>
-                      <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="name" className="text-right">Name</Label>
-                          <Input id="name" value={newDevice.name} onChange={(e) => setNewDevice({...newDevice, name: e.target.value})} className="col-span-3" />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="type" className="text-right">Type</Label>
-                          <Input id="type" value={newDevice.type} onChange={(e) => setNewDevice({...newDevice, type: e.target.value})} className="col-span-3" />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="location" className="text-right">Location</Label>
-                          <Input id="location" value={newDevice.location} onChange={(e) => setNewDevice({...newDevice, location: e.target.value})} className="col-span-3" />
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button onClick={addDevice}>Add Device</Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+
                 </div>
                 <Table>
   <TableHeader>
@@ -305,13 +458,13 @@ export default function DevicesAndSensorsPage() {
     </TableRow>
   </TableHeader>
   <TableBody>
-    {filteredDevices.map((device) => (
+    {paginateDevices(devices).map((device) => (
       <TableRow key={device.id}>
         <TableCell>{device.name}</TableCell>
         <TableCell>{device.type}</TableCell>
         <TableCell>{device.location}</TableCell>
         <TableCell>
-            <Badge className={getStatusColor(device.status)}>
+          <Badge className={getStatusColor(device.status)}>
             {device.status}
           </Badge>
         </TableCell>
@@ -356,8 +509,8 @@ export default function DevicesAndSensorsPage() {
             variant="ghost" 
             className="text-red-500" 
             onClick={() => {
-              setItemToRemove({ type: 'device', id: device.id })
-              setIsRemoveDialogOpen(true)
+              setItemToRemove({ type: 'device', id: device.id });
+              setIsRemoveDialogOpen(true);
             }}
           >
             Delete
@@ -367,6 +520,10 @@ export default function DevicesAndSensorsPage() {
     ))}
   </TableBody>
 </Table>
+
+{/* Render Pagination Controls */}
+{renderDevicePagination()}
+
               </CardContent>
             </Card>
           </TabsContent>
@@ -490,40 +647,40 @@ export default function DevicesAndSensorsPage() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rooms
-            .filter((room) =>
-              room.room_name.toLowerCase().includes(searchTerm.toLowerCase())
-            )
-            .map((room) => (
-              <TableRow key={room.room_id}>
-                <TableCell>{room.room_name}</TableCell>
-                <TableCell>{room.room_number}</TableCell>
-                <TableCell>{room.crop_type}</TableCell>
-                <TableCell>{room.floor}</TableCell>
-                <TableCell>{room.city}</TableCell>
-                <TableCell>{room.user_name}</TableCell>
-                <TableCell>
-                  <div className="flex space-x-2">
-                    <Link href={`/rooms/${room.room_id}`} passHref>
-                      <Button variant="ghost">View Shelves</Button>
-                    </Link>
-                    <Button
-                      variant="ghost"
-                      className="text-red-500 hover:text-red-700 hover:bg-red-100"
-                      onClick={() => {
-                        setItemToRemove({ type: 'room', id: room.room_id });
-                        setIsRemoveDialogOpen(true);
-                      }}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+          {paginateRooms(rooms.filter((room) =>
+            room.room_name.toLowerCase().includes(searchTerm.toLowerCase())
+          )).map((room) => (
+            <TableRow key={room.room_id}>
+              <TableCell>{room.room_name}</TableCell>
+              <TableCell>{room.room_number}</TableCell>
+              <TableCell>{room.crop_type}</TableCell>
+              <TableCell>{room.floor}</TableCell>
+              <TableCell>{room.city}</TableCell>
+              <TableCell>{room.user_name}</TableCell>
+              <TableCell>
+                <div className="flex space-x-2">
+                  <Link href={`/rooms/${room.room_id}`} passHref>
+                    <Button variant="ghost">View Shelves</Button>
+                  </Link>
+                  <Button
+                    variant="ghost"
+                    className="text-red-500 hover:text-red-700 hover:bg-red-100"
+                    onClick={() => {
+                      setItemToRemove({ type: 'room', id: room.room_id });
+                      setIsRemoveDialogOpen(true);
+                    }}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
         </TableBody>
       </Table>
 
+      {/* Render Pagination Controls */}
+      {renderRoomPagination()}
               </CardContent>
             </Card>
           </TabsContent>

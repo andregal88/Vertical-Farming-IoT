@@ -15,12 +15,14 @@ export default function LogsPage() {
   const [logs, setLogs] = useState([]) // State to hold logs fetched from the backend
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [logsPerPage] = useState(10) // Set how many logs to show per page
 
   // Fetch logs from the backend
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:5000/sensor-maintenance') // Update with your API endpoint
+        const response = await fetch('http://127.0.0.1:5015/sensor-maintenance') // Your existing endpoint
         if (!response.ok) {
           throw new Error('Failed to fetch logs')
         }
@@ -34,12 +36,20 @@ export default function LogsPage() {
     fetchLogs()
   }, [])
 
-
+  // Filter logs based on the search term and filter type
   const filteredLogs = logs.filter(log => 
     (log.review.toLowerCase().includes(searchTerm.toLowerCase()) ||
      log.sensor_id.toString().includes(searchTerm)) &&
     (filterType === 'all' || log.status.toLowerCase() === filterType.toLowerCase())
   )
+
+  // Pagination logic
+  const indexOfLastLog = currentPage * logsPerPage
+  const indexOfFirstLog = indexOfLastLog - logsPerPage
+  const currentLogs = filteredLogs.slice(indexOfFirstLog, indexOfLastLog)
+  
+  // Calculate total pages
+  const totalPages = Math.ceil(filteredLogs.length / logsPerPage)
 
   const getLogTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
@@ -53,7 +63,7 @@ export default function LogsPage() {
   const handleExportLogs = () => {
     const csvContent = [
       ['Timestamp', 'Sensor ID', 'Review', 'Datetime Review', 'Status'],
-      ...filteredLogs.map(log => [
+      ...currentLogs.map(log => [
         log.timestamp, log.sensor_id, log.review, log.datetime_review, log.status
       ])
     ].map(e => e.join(",")).join("\n")
@@ -91,9 +101,9 @@ export default function LogsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="failed">Failed</SelectItem>
+                    <SelectItem value="normal">Normal</SelectItem>
+                    <SelectItem value="warning">Warning</SelectItem>
+                    <SelectItem value="critical">Critical</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -110,7 +120,7 @@ export default function LogsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredLogs.map((log) => (
+                {currentLogs.map((log) => (
                   <TableRow key={log.id}>
                     <TableCell>{log.timestamp}</TableCell>
                     <TableCell>{log.sensor_id}</TableCell>
@@ -125,6 +135,67 @@ export default function LogsPage() {
                 ))}
               </TableBody>
             </Table>
+
+            <div className="flex justify-between mt-4 items-center">
+  {/* First Page Button */}
+  <Button disabled={currentPage === 1} onClick={() => setCurrentPage(1)}>
+    First
+  </Button>
+
+  {/* Previous Page Button */}
+  <Button disabled={currentPage === 1} onClick={() => setCurrentPage(currentPage - 1)}>
+    Previous
+  </Button>
+
+  {/* Page Numbers */}
+  <div className="flex gap-2">
+    {/* Display 1st page button if needed */}
+    {currentPage > 3 && (
+      <Button onClick={() => setCurrentPage(1)}>1</Button>
+    )}
+
+    {/* Display "..." if skipped pages */}
+    {currentPage > 4 && <span className="px-2">...</span>}
+
+    {/* Display pages around the current page */}
+    {Array.from({ length: 5 }).map((_, index) => {
+      const page = currentPage - 2 + index;
+      // Only render valid page numbers within the range
+      if (page > 0 && page <= totalPages) {
+        return (
+          <Button
+            key={page}
+            variant={page === currentPage ? 'outline' : 'default'}
+            onClick={() => setCurrentPage(page)}
+          >
+            {page}
+          </Button>
+        );
+      }
+      return null;
+    })}
+
+    {/* Display "..." if skipped pages */}
+    {currentPage < totalPages - 3 && <span className="px-2">...</span>}
+
+    {/* Display last page button if needed */}
+    {currentPage < totalPages - 2 && (
+      <Button onClick={() => setCurrentPage(totalPages)}>{totalPages}</Button>
+    )}
+  </div>
+
+  {/* Next Page Button */}
+  <Button disabled={currentPage === totalPages} onClick={() => setCurrentPage(currentPage + 1)}>
+    Next
+  </Button>
+
+  {/* Last Page Button */}
+  <Button disabled={currentPage === totalPages} onClick={() => setCurrentPage(totalPages)}>
+    Last
+  </Button>
+</div>
+
+
           </CardContent>
         </Card>
       </main>

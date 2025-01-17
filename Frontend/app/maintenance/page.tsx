@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import axios from 'axios'  // Import axios
+import axios from 'axios'
 
 export default function MaintenancePage() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -20,9 +20,13 @@ export default function MaintenancePage() {
   const [sensors, setSensors] = useState([])  // Start with an empty array
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 5  // Define how many sensors per page
+
   // Fetch data from API when the component mounts
   useEffect(() => {
-    axios.get('http://127.0.0.1:5001/api/sensors')
+    axios.get('http://127.0.0.1:5001/sensors')
       .then(response => {
         setSensors(response.data)  // Set sensors state with API data
       })
@@ -36,6 +40,12 @@ export default function MaintenancePage() {
     sensor.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
     sensor.location.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  // Calculate total pages
+  const totalPages = Math.ceil(filteredSensors.length / pageSize)
+
+  // Get sensors for the current page
+  const paginatedSensors = filteredSensors.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -51,7 +61,7 @@ export default function MaintenancePage() {
       // Update the sensor's last maintenance date in the local state
       setSensors(sensors.map(sensor => 
         sensor.name === selectedSensor 
-          ? { ...sensor, lastMaintenance: maintenanceDate, status: 'Good' } 
+          ? { ...sensor, lastMaintenance: maintenanceDate, status: maintenanceNotes } 
           : sensor
       ))
 
@@ -60,7 +70,7 @@ export default function MaintenancePage() {
       setMaintenanceDate('')
       setMaintenanceNotes('')
 
-      // Close the dialog (you'll need to add state for this)
+      // Close the dialog
       setIsDialogOpen(false)
 
       // Show a success message
@@ -140,6 +150,8 @@ export default function MaintenancePage() {
                 </DialogContent>
               </Dialog>
             </div>
+
+            {/* Table */}
             <Table>
               <TableHeader>
                 <TableRow>
@@ -148,11 +160,11 @@ export default function MaintenancePage() {
                   <TableHead>Location</TableHead>
                   <TableHead>Last Maintenance</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
+                  {/* <TableHead>Actions</TableHead> */}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredSensors.map((sensor) => (
+                {paginatedSensors.map((sensor) => (
                   <TableRow key={sensor.id}>
                     <TableCell>{sensor.name}</TableCell>
                     <TableCell>{sensor.type}</TableCell>
@@ -163,13 +175,67 @@ export default function MaintenancePage() {
                         {sensor.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm">View Details</Button>
-                    </TableCell>
+                    {/* <TableCell> */}
+                      {/* <Button variant="ghost" size="sm">View Details</Button> */}
+                    {/* </TableCell> */}
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+
+            {/* Pagination Controls */}
+            <div className="flex justify-between mt-4 items-center">
+              {/* First Page Button */}
+              <Button disabled={currentPage === 1} onClick={() => setCurrentPage(1)}>
+                First
+              </Button>
+
+              {/* Previous Page Button */}
+              <Button disabled={currentPage === 1} onClick={() => setCurrentPage(currentPage - 1)}>
+                Previous
+              </Button>
+
+              {/* Page Numbers */}
+              <div className="flex gap-2">
+                {currentPage > 3 && (
+                  <Button onClick={() => setCurrentPage(1)}>1</Button>
+                )}
+
+                {currentPage > 4 && <span className="px-2">...</span>}
+
+                {Array.from({ length: 5 }).map((_, index) => {
+                  const page = currentPage - 2 + index;
+                  if (page > 0 && page <= totalPages) {
+                    return (
+                      <Button
+                        key={page}
+                        variant={page === currentPage ? 'outline' : 'default'}
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </Button>
+                    );
+                  }
+                  return null;
+                })}
+
+                {currentPage < totalPages - 3 && <span className="px-2">...</span>}
+
+                {currentPage < totalPages - 2 && (
+                  <Button onClick={() => setCurrentPage(totalPages)}>{totalPages}</Button>
+                )}
+              </div>
+
+              {/* Next Page Button */}
+              <Button disabled={currentPage === totalPages} onClick={() => setCurrentPage(currentPage + 1)}>
+                Next
+              </Button>
+
+              {/* Last Page Button */}
+              <Button disabled={currentPage === totalPages} onClick={() => setCurrentPage(totalPages)}>
+                Last
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </main>
