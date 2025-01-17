@@ -22,7 +22,7 @@ export default function MaintenancePage() {
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
-  const pageSize = 5  // Define how many sensors per page
+  const pageSize = 10  // Define how many sensors per page
 
   // Fetch data from API when the component mounts
   useEffect(() => {
