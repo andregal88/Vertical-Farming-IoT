@@ -95,90 +95,49 @@ function SortableItem(props: {
 }
 
 export function DashboardContent() {
-  const [rooms, setRooms] = useState<Room[]>([
-    {
-      id: 'room1',
-      name: 'Lettuce Room 3',
-      sensors: [
-        { id: 'sensor1', name: 'Water Tank 01', type: 'Water Level', value: null, max: 100, room: 'room1', shelf: 'A1' },
-        { id: 'sensor2', name: 'Temperature Sensor 1', type: 'Temperature', value: null, max: 100, room: 'room1', shelf: 'B2' },
-        { id: 'sensor3', name: 'Humidity Sensor 1', type: 'Humidity', value: 62, max: 100, room: 'room1', shelf: 'C3' },
-      ]
-    },
-    {
-      id: 'room2',
-      name: 'Tomato Section',
-      sensors: [
-        { id: 'sensor4', name: 'CO2 Sensor 1', type: 'CO2', value: 425, max: 1000, room: 'room2', shelf: 'D4' },
-        { id: 'sensor5', name: 'Light Sensor 1', type: 'Light Intensity', value: 75, max: 100, room: 'room2', shelf: 'E5' },
-      ]
-    }
-  ]);
+  const [roomsAndSensors, setRoomsAndSensors] = useState([]);
+  const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
+  const [selectedShelf, setSelectedShelf] = useState<string | null>(null);
+  const [dashboardItems, setDashboardItems] = useState<DashboardItem[]>([]);
+
   useEffect(() => {
-    // Fetch function to get data for a specific sensor
-    const fetchSensorData = (sensorId, sensorKey) => {
-      return fetch(`http://127.0.0.1:5000/get_last_data?sensor_id=${sensorId}`)
-        .then(response => response.text())
-        .then(data => {
-          const value = parseFloat(data); // Parse the fetched value
-          console.log(`Fetched data for ${sensorKey}:`, value);
-          return { sensorKey, value }; // Return the sensor ID and its value
-        })
-        .catch(error => {
-          console.error(`Error fetching data for ${sensorKey}:`, error);
-          return { sensorKey, value: null }; // Return null in case of error
-        });
+    const fetchRoomsAndSensors = async () => {
+      try {
+        // Fetch room data
+        const roomsResponse = await fetch('http://127.0.0.1:5017/get_rooms_with_shelves_and_sensors');
+        const roomsData = await roomsResponse.json();
+
+        // // Fetch sensor data
+        // const sensorsResponse = await fetch('http://127.0.0.1:5017/get_rooms_with_shelves_and_sensors');
+        // const sensorsData = await sensorsResponse.json();
+
+        // Map rooms and attach the corresponding sensors
+        const combinedRooms = roomsData.rooms.map((room: any) => ({
+          id: `room${room.room_id}`, // Prefix `room` to match your dummy data
+          name: room.room_name,
+          sensors: room.shelves.flatMap((shelf: any) =>
+            shelf.sensors.map((sensor: any) => ({
+              id: `sensor${sensor.sensor_id}`, // Prefix `sensor` to match your dummy data
+              name: sensor.name, // Sensor name from API
+              type: sensor.sensor_type, // Sensor type from API
+              value: sensor.last_value, // Last value from API
+              room: room.room_name, // Match to room name
+              shelfId: `shelf${shelf.shelf_id}`, // Prefix `shelf` for shelf ID
+            }))
+          ),
+        }));
+
+        // Set the combined data to state
+        setRoomsAndSensors(combinedRooms);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      }
     };
-  
-    // Fetch data for both sensors
-    Promise.all([
-      fetchSensorData(204, 'sensor2'), // Fetch for sensor2
-      fetchSensorData(205, 'sensor1')  // Fetch for sensor1 (replace 203 with its actual ID)
-    ])
-      .then(results => {
-        setRooms(prevRooms => {
-          console.log('Previous Rooms:', prevRooms); // Debug the current state
-  
-          const updatedRooms = prevRooms.map(room => ({
-            ...room,
-            sensors: room.sensors.map(sensor => {
-              const updatedSensor = results.find(result => result.sensorKey === sensor.id);
-              return updatedSensor ? { ...sensor, value: updatedSensor.value } : sensor;
-            })
-          }));
-  
-          console.log('Updated Rooms:', updatedRooms); // Debug the updated state
-          return updatedRooms; // Return the new state
-        });
-      });
-  }, []); // Dependency array ensures the effect runs only once
-  
-  // // Fetch the value from the API and update the sensor object
-  // useEffect(() => {
-  //   fetch('http://127.0.0.1:5000/get_last_data?sensor_id=204')
-  //     .then(response => response.text()) // assuming the API returns plain text
-  //     .then(data => {
-  //       const temperature = parseFloat(data); // Parse the fetched value
-  //       console.log('Fetched data:', temperature);
-  
-  //       // Update the state with the new sensor value
-  //       setRooms(prevRooms => {
-  //         console.log('Previous Rooms:', prevRooms); // Debug the current state
-  //         const updatedRooms = prevRooms.map(room => ({
-  //           ...room,
-  //           sensors: room.sensors.map(sensor => 
-  //             sensor.id === 'sensor2' ? { ...sensor, value: temperature } : sensor
-  //           )
-  //         }));
-  //         console.log('Updated Rooms:', updatedRooms); // Debug the updated state
-  //         return updatedRooms; // Return the new state
-  //       });
-  //     })
-  //     .catch(error => {
-  //       console.error('Error fetching data:', error);
-  //     });
-  // }, []); // Dependency array ensures the effect runs only once
-  
+
+    fetchRoomsAndSensors();
+  }, []);
+
+
 
   
   const [controls, setControls] = useState<Control[]>([
@@ -218,18 +177,18 @@ export function DashboardContent() {
     },
   ]);
 
-  const [dashboardItems, setDashboardItems] = useState<DashboardItem[]>([
-    { id: 'item1', type: 'sensor', content: rooms[0].sensors[0] },
-    { id: 'item2', type: 'sensor', content: rooms[0].sensors[1] },
-    { id: 'item3', type: 'control', content: controls[0] },
-    { id: 'item4', type: 'graph', content: graphs[0] },
-  ]);
+  // const [dashboardItems, setDashboardItems] = useState<DashboardItem[]>([
+  //   { id: 'item1', type: 'sensor', content: rooms[0].sensors[0] },
+  //   { id: 'item2', type: 'sensor', content: rooms[0].sensors[1] },
+  //   { id: 'item3', type: 'control', content: controls[0] },
+  //   { id: 'item4', type: 'graph', content: graphs[0] },
+  // ]);
 
-  const [selectedRoom, setSelectedRoom] = useState<string>('');
+  // const [selectedRoom, setSelectedRoom] = useState<string>('');
   const [selectedItem, setSelectedItem] = useState<string>('');
   const [selectedItemType, setSelectedItemType] = useState<'sensor' | 'control' | 'graph'>('sensor');
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
-  const [selectedShelf, setSelectedShelf] = useState<string>('');
+  // const [selectedShelf, setSelectedShelf] = useState<string>('');
 
   const [waterLevel, setWaterLevel] = useState(6);
   const [dewPoint, setDewPoint] = useState(60);
@@ -271,17 +230,24 @@ export function DashboardContent() {
 
   const addItem = () => {
     let newItem: DashboardItem | null = null;
+if (selectedItemType === 'sensor') {
+  const roomToAddFrom = roomsAndSensors.find(room => room.id === selectedRoom); // Find the room using `roomsAndSensors`
+  
+  // Check if room exists and if it has sensors
+  const sensorToAdd = roomToAddFrom?.sensors.find(sensor => sensor.id === selectedItem);
 
-    if (selectedItemType === 'sensor') {
-      const roomToAddFrom = rooms.find(room => room.id === selectedRoom);
-      const sensorToAdd = roomToAddFrom?.sensors.find(sensor => sensor.id === selectedItem);
-      if (sensorToAdd) {
-        newItem = { 
-          id: `item${dashboardItems.length + 1}`, 
-          type: 'sensor', 
-          content: {...sensorToAdd, room: selectedRoom, shelf: selectedShelf} 
-        };
+  if (sensorToAdd) {
+    // Create the new item object for a sensor
+    newItem = {
+      id: `item${dashboardItems.length + 1}`, // Unique item ID based on current dashboard items count
+      type: 'sensor',
+      content: {
+        ...sensorToAdd, // Spread the properties of the selected sensor
+        room: selectedRoom, // Add the selected room
+        shelf: selectedShelf // Add the selected shelf
       }
+    };
+  }
     } else if (selectedItemType === 'control') {
       const controlToAdd = controls.find(control => control.id === selectedItem);
       if (controlToAdd) {
@@ -370,22 +336,28 @@ export function DashboardContent() {
   const getRoomAndShelfInfo = (item: DashboardItem) => {
     if (item.type === 'sensor') {
       const sensor = item.content as Sensor;
-      const room = rooms.find(r => r.id === sensor.room);
+      
+      // Find the room that contains this sensor from roomsAndSensors
+      const room = roomsAndSensors.find(r => r.id === sensor.room);
+      
       return {
-        roomName: room?.name || 'Unknown Room',
-        shelf: sensor.shelf || 'N/A'
+        roomName: room?.name || 'Unknown Room', // Return the room name if found, otherwise 'Unknown Room'
+        shelf: sensor.shelf || 'N/A' // Return the shelf if available, otherwise 'N/A'
       };
     } else if (item.type === 'control') {
       const control = item.content as Control;
-      const room = rooms.find(r => r.id === control.room);
+      
+      // Find the room for the control item from roomsAndSensors
+      const room = roomsAndSensors.find(r => r.id === control.room);
+      
       return {
-        roomName: room?.name || 'Unknown Room',
-        shelf: control.shelf
+        roomName: room?.name || 'Unknown Room', // Return the room name if found, otherwise 'Unknown Room'
+        shelf: control.shelf || 'N/A' // Return the shelf if available, otherwise 'N/A'
       };
     }
-    return null;
+    return null; // Return null if it's not a 'sensor' or 'control'
   };
-
+  
   const updateControlsForCrop = (cropType: string) => {
     switch (cropType) {
       case 'lettuce':
@@ -410,7 +382,18 @@ export function DashboardContent() {
         break;
     }
   };
+  // Get shelves for the selected room
+  const getShelvesForRoom = () => {
+    if (!selectedRoom) return [];
+    const selectedRoomData = roomsAndSensors.find(room => room.id === selectedRoom);
+    if (!selectedRoomData) return [];
 
+    // Extract unique shelf IDs from the sensors in the selected room
+    const uniqueShelves = Array.from(new Set(selectedRoomData.sensors.map((sensor: any) => sensor.shelfId)))
+      .filter((id) => id !== undefined); // Remove undefined values
+
+    return uniqueShelves;
+  };
   return (
     <main className="container mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
@@ -445,15 +428,18 @@ export function DashboardContent() {
                     Room
                   </Label>
                   <Select value={selectedRoom} onValueChange={setSelectedRoom}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select room" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {rooms.map((room) => (
-                        <SelectItem key={room.id} value={room.id}>{room.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+  <SelectTrigger className="col-span-3">
+    <SelectValue placeholder="Select room" />
+  </SelectTrigger>
+  <SelectContent>
+    {roomsAndSensors.map((room) => (
+      <SelectItem key={room.id} value={room.id}>
+        {room.name}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+
                 </div>
                 {selectedItemType !== 'graph' && (
                   <div className="grid grid-cols-4 items-center gap-4">
@@ -461,38 +447,43 @@ export function DashboardContent() {
                       Shelf
                     </Label>
                     <Select value={selectedShelf} onValueChange={setSelectedShelf}>
-                      <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Select shelf" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {['A1', 'B2', 'C3', 'D4', 'E5'].map((shelf) => (
-                          <SelectItem key={shelf} value={shelf}>{shelf}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+  <SelectTrigger className="col-span-3">
+    <SelectValue placeholder="Select shelf" />
+  </SelectTrigger>
+  <SelectContent>
+    {getShelvesForRoom().map((shelfId) => (
+      <SelectItem key={shelfId} value={shelfId.toString()}>
+        {shelfId} {/* This will display the shelfId, but you can map it to a name if necessary */}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+
                   </div>
                 )}
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="item" className="text-right">
-                    {selectedItemType === 'sensor' ? 'Sensor' : selectedItemType === 'control' ? 'Control' : 'Graph'}
-                  </Label>
-                  <Select value={selectedItem} onValueChange={setSelectedItem}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder={`Select ${selectedItemType}`} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {selectedItemType === 'sensor' && rooms.find(room => room.id === selectedRoom)?.sensors.map((sensor) => (
-                        <SelectItem key={sensor.id} value={sensor.id}>{sensor.name}</SelectItem>
-                      ))}
-                      {selectedItemType === 'control' && controls.map((control) => (
-                        <SelectItem key={control.id} value={control.id}>{control.name}</SelectItem>
-                      ))}
-                      {selectedItemType === 'graph' && graphs.map((graph) => (
-                        <SelectItem key={graph.id} value={graph.id}>{graph.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+<div className="grid grid-cols-4 items-center gap-4">
+  <Label htmlFor="item" className="text-right">
+    {selectedItemType === 'sensor' ? 'Sensor' : selectedItemType === 'control' ? 'Control' : 'Graph'}
+  </Label>
+  <Select value={selectedItem} onValueChange={setSelectedItem}>
+    <SelectTrigger className="col-span-3">
+      <SelectValue placeholder={`Select ${selectedItemType}`} />
+    </SelectTrigger>
+    <SelectContent>
+      {selectedItemType === 'sensor' &&
+        roomsAndSensors
+          .find(room => room.id === selectedRoom)
+          ?.sensors
+          .filter(sensor => sensor.shelfId === selectedShelf) // Filter sensors based on the selected shelf
+          .map(sensor => (
+            <SelectItem key={sensor.id} value={sensor.id}>
+              {sensor.name}
+            </SelectItem>
+          ))}
+    </SelectContent>
+  </Select>
+</div>
+
               </div>
               <Button onClick={addItem}>Add Item</Button>
             </DialogContent>

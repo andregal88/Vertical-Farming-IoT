@@ -26,7 +26,7 @@ export function Header() {
   // Fetch the 3 most recent logs from the API
   const fetchLogs = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:5000/sensor-maintenance');
+      const response = await fetch('http://127.0.0.1:5015/sensor-maintenance');
       const data = await response.json();
       
       if (data.status === 'success') {
