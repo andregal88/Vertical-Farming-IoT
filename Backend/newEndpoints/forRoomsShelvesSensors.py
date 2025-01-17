@@ -5,7 +5,6 @@ import mysql.connector
 app = Flask(__name__)
 CORS(app)
 
-
 def connect_db():
     try:
         connection = mysql.connector.connect(
@@ -20,45 +19,44 @@ def connect_db():
         print(f"Error: {err}")
         return None
 
-
-
-
 @app.route('/get_rooms_with_shelves_and_sensors', methods=['GET'])
 def get_rooms_with_shelves_and_sensors():
-    # Connect to the database
     connection = connect_db()
     if connection:
-        cursor = connection.cursor(dictionary=True)  # Use dictionary=True for column names in the result
+        cursor = connection.cursor(dictionary=True)
         
         try:
-            # Query to fetch rooms along with their shelves and sensors
             query = """
-                SELECT 
-                    r.id AS room_id,
-                    r.name AS room_name,
-                    r.address,
-                    r.city,
-                    r.roomNumber AS room_number,
-                    r.floor,
-                    ct.name AS crop_type,
-                    u.name AS user_name,
-                    s.id AS shelf_id,
-                    s.room_id AS shelf_room_id,
-                    sn.id AS sensor_id,
-                    sn.name AS sensor_name,
-                    sn.sensorType AS sensor_type,
-                    sn.status AS sensor_status,
-                    dh.value AS sensor_value,
-                    dh.timestamp AS sensor_value_timestamp
-                FROM Rooms r
-                JOIN cropType ct ON r.cropType_id = ct.id
-                JOIN Users u ON r.user_id = u.id
-                LEFT JOIN Shelves s ON s.room_id = r.id
-                LEFT JOIN Sensors sn ON sn.shelve_id = s.id
-                LEFT JOIN dataHistory dh ON dh.sensor_id = sn.id
-                WHERE dh.timestamp = (
-                    SELECT MAX(timestamp) FROM dataHistory WHERE sensor_id = sn.id
+            SELECT 
+                r.id AS room_id,
+                r.name AS room_name,
+                r.address,
+                r.city,
+                r.roomNumber AS room_number,
+                r.floor,
+                ct.name AS crop_type,
+                u.name AS user_name,
+                s.id AS shelf_id,
+                sn.id AS sensor_id,
+                sn.name AS sensor_name,
+                sn.sensorType AS sensor_type,
+                sn.status AS sensor_status,
+                dh.value AS sensor_value,
+                dh.timestamp AS sensor_value_timestamp
+            FROM Rooms r
+            JOIN cropType ct ON r.cropType_id = ct.id
+            JOIN Users u ON r.user_id = u.id
+            LEFT JOIN Shelves s ON s.room_id = r.id
+            LEFT JOIN Sensors sn ON sn.shelve_id = s.id
+            LEFT JOIN (
+                SELECT sensor_id, value, timestamp
+                FROM dataHistory
+                WHERE (sensor_id, timestamp) IN (
+                    SELECT sensor_id, MAX(timestamp)
+                    FROM dataHistory
+                    GROUP BY sensor_id
                 )
+            ) dh ON dh.sensor_id = sn.id;
             """
             cursor.execute(query)
             rows = cursor.fetchall()
@@ -83,8 +81,8 @@ def get_rooms_with_shelves_and_sensors():
                         'user_name': row['user_name'],
                         'shelves': [],
                     }
-                
-                # Add shelves to the room if not already added
+
+                # Handle shelves
                 shelf = None
                 if row['shelf_id']:
                     # Check if shelf already exists for this room
@@ -92,17 +90,17 @@ def get_rooms_with_shelves_and_sensors():
                         if existing_shelf['shelf_id'] == row['shelf_id']:
                             shelf = existing_shelf
                             break
-                    
-                    # If the shelf does not exist, create a new one
+
+                    # If shelf doesn't exist, create it
                     if not shelf:
                         shelf = {
                             'shelf_id': row['shelf_id'],
-                            'room_id': row['shelf_room_id'],
+                            'room_id': row['room_id'],
                             'sensors': []
                         }
                         rooms[room_id]['shelves'].append(shelf)
                 
-                # Add sensors to the shelf if not already added
+                # Add sensor to the shelf
                 if row['sensor_id']:
                     sensor = {
                         'sensor_id': row['sensor_id'],
@@ -112,13 +110,14 @@ def get_rooms_with_shelves_and_sensors():
                         'last_value': row['sensor_value'],
                         'last_value_timestamp': row['sensor_value_timestamp']
                     }
-                    
-                    # Check if sensor is already added to the shelf
+
+                    # Avoid duplicates: check if sensor is already added
                     if sensor not in shelf['sensors']:
                         shelf['sensors'].append(sensor)
 
-            # Convert the dictionary into a list for JSON response
+            # Convert the dictionary to the final response format
             response_data = list(rooms.values())
+
             return jsonify({"rooms": response_data}), 200
         
         except mysql.connector.Error as err:
@@ -128,7 +127,6 @@ def get_rooms_with_shelves_and_sensors():
             connection.close()
 
     return jsonify({"message": "Failed to connect to the database."}), 500
-
 
 if __name__ == '__main__':
     app.run(debug=True, port=5017)
