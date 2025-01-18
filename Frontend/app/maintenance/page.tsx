@@ -47,14 +47,16 @@ export default function MaintenancePage() {
   // Get sensors for the current page
   const paginatedSensors = filteredSensors.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string | null | undefined) => {
+    if (!status) return 'bg-gray-500'; // Default color for null or undefined
     switch (status.toLowerCase()) {
-      case 'normal': return 'bg-green-500'
-      case 'warning': return 'bg-yellow-500'
-      case 'critical': return 'bg-red-500'
-      default: return 'bg-gray-500'
+      case 'normal': return 'bg-green-500';
+      case 'warning': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
     }
   }
+  
 
   const handleMaintenanceSubmit = () => {
     if (selectedSensor && maintenanceDate) {
