@@ -8,7 +8,7 @@ interface CircularGaugeProps {
 
 export function CircularGauge({ value, max, label, room, shelf }: CircularGaugeProps) {
   const validValue = value !== null ? value : 0;
-  const percentage = (validValue / max) * 100;
+  const percentage = (validValue / 100) * 100;
   const rotation = (percentage / 100) * 180;
 
   return (
