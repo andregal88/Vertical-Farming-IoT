@@ -1,5 +1,4 @@
 'use client'
-//adsfdsfdsf
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -44,6 +43,7 @@ interface Graph {
   id: string;
   name: string;
   room: string;
+  shelfId: string;
   data: { name: string; value: number }[];
 }
 
@@ -95,50 +95,99 @@ function SortableItem(props: {
 }
 
 export function DashboardContent() {
-  const [roomsAndSensors, setRoomsAndSensors] = useState([]);
-  const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
-  const [selectedShelf, setSelectedShelf] = useState<string | null>(null);
-  const [dashboardItems, setDashboardItems] = useState<DashboardItem[]>([]);
+  const [roomsAndSensors, setRoomsAndSensors] = useState([]); // Rooms with sensors data
+  const [selectedRoom, setSelectedRoom] = useState<string | null>(null); // Selected room
+  const [selectedShelf, setSelectedShelf] = useState<string | null>(null); // Selected shelf
+  const [dashboardItems, setDashboardItems] = useState<DashboardItem[]>([]); // Dashboard items
 
+  // State for storing graph data
+  const [graphs, setGraphData] = useState<Graph[]>([]);
+
+  // Fetching room and sensor data (existing API)
   useEffect(() => {
     const fetchRoomsAndSensors = async () => {
       try {
-        // Fetch room data
         const roomsResponse = await fetch('http://127.0.0.1:5017/get_rooms_with_shelves_and_sensors');
         const roomsData = await roomsResponse.json();
 
-        // // Fetch sensor data
-        // const sensorsResponse = await fetch('http://127.0.0.1:5017/get_rooms_with_shelves_and_sensors');
-        // const sensorsData = await sensorsResponse.json();
-
         // Map rooms and attach the corresponding sensors
         const combinedRooms = roomsData.rooms.map((room: any) => ({
-          id: `room${room.room_id}`, // Prefix `room` to match your dummy data
+          id: `room${room.room_id}`,
           name: room.room_name,
           sensors: room.shelves.flatMap((shelf: any) =>
             shelf.sensors.map((sensor: any) => ({
-              id: `sensor${sensor.sensor_id}`, // Prefix `sensor` to match your dummy data
-              name: sensor.name, // Sensor name from API
-              type: sensor.sensor_type, // Sensor type from API
-              value: sensor.last_value, // Last value from API
-              room: room.room_name, // Match to room name
-              shelfId: `shelf${shelf.shelf_id}`, // Prefix `shelf` for shelf ID
+              id: `sensor${sensor.sensor_id}`,
+              name: sensor.name,
+              type: sensor.sensor_type,
+              value: sensor.last_value,
+              room: room.room_name,
+              shelfId: `shelf${shelf.shelf_id}`,
             }))
           ),
+          shelves: room.shelves.map((shelf: any) => ({
+            id: `shelf${shelf.shelf_id}`,
+            name: shelf.shelf_name,
+            sensors: shelf.sensors.map((sensor: any) => ({
+              id: `sensor${sensor.sensor_id}`,
+              name: sensor.name,
+            }))
+          }))
         }));
 
-        // Set the combined data to state
         setRoomsAndSensors(combinedRooms);
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching rooms and sensors data:', error);
       }
     };
 
     fetchRoomsAndSensors();
   }, []);
 
+  // Fetching graph data from another API
+  useEffect(() => {
+    const fetchGraphData = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:5101/room-data');
+        const data = await response.json();
 
+        const newGraphData = data.map((room: any) => {
+          return room.shelves.flatMap((shelf: any) =>
+            shelf.sensors.flatMap((sensor: any) => {
+              const graph = {
+                id: `graph_${sensor.sensor_id}`,
+                name: sensor.sensor_name,
+                room: room.room_name,
+                shelfId: `shelf${shelf.shelf_id}`, // Added shelfId to the graph
+                data: sensor.data.map((entry: any) => ({
+                  name: entry.timestamp,  // timestamp for X axis
+                  value: entry.value,     // sensor value for Y axis
+                }))
+              };
+              return graph;
+            })
+          );
+        });
 
+        // Flatten the array and set it to state
+        setGraphData(newGraphData.flat());
+      } catch (error) {
+        console.error('Error fetching graph data:', error);
+      }
+    };
+
+    fetchGraphData();
+  }, []);
+
+  // Debugging logs
+  console.log('Graphs:', graphs);          // Log the graphs data
+  console.log("Selected Shelf:", selectedShelf);
+
+  const filteredGraphs = graphs.filter((graph) => {
+    console.log("Checking if", graph.shelfId, "==", selectedShelf);
+    return graph.shelfId === selectedShelf; // Ensure both are strings, or both are numbers
+  });
+  console.log("Filtered Graphs:", filteredGraphs);
+  
   
   const [controls, setControls] = useState<Control[]>([
     { id: 'control1', name: 'Water Level', type: 'slider', value: 6, max: 10, room: 'room1', shelf: 'A1' },
@@ -148,34 +197,34 @@ export function DashboardContent() {
     { id: 'control5', name: 'Sprinkler System', type: 'switch', value: 0, room: 'room1', shelf: 'E5' },
   ]);
 
-  const [graphs, setGraphs] = useState<Graph[]>([
-    {
-      id: 'graph1',
-      name: 'Temperature Over Time',
-      room: 'room1',
-      data: [
-        { name: '00:00', value: 20 },
-        { name: '04:00', value: 18 },
-        { name: '08:00', value: 22 },
-        { name: '12:00', value: 25 },
-        { name: '16:00', value: 23 },
-        { name: '20:00', value: 21 },
-      ]
-    },
-    {
-      id: 'graph2',
-      name: 'Humidity Over Time',
-      room: 'room2',
-      data: [
-        { name: '00:00', value: 60 },
-        { name: '04:00', value: 58 },
-        { name: '08:00', value: 62 },
-        { name: '12:00', value: 65 },
-        { name: '16:00', value: 63 },
-        { name: '20:00', value: 61 },
-      ]
-    },
-  ]);
+  // const [graphs, setGraphs] = useState<Graph[]>([
+  //   {
+  //     id: 'graph1',
+  //     name: 'Temperature Over Time',
+  //     room: 'room1',
+  //     data: [
+  //       { name: '00:00', value: 20 },
+  //       { name: '04:00', value: 18 },
+  //       { name: '08:00', value: 22 },
+  //       { name: '12:00', value: 25 },
+  //       { name: '16:00', value: 23 },
+  //       { name: '20:00', value: 21 },
+  //     ]
+  //   },
+  //   {
+  //     id: 'graph2',
+  //     name: 'Humidity Over Time',
+  //     room: 'room2',
+  //     data: [
+  //       { name: '00:00', value: 60 },
+  //       { name: '04:00', value: 58 },
+  //       { name: '08:00', value: 62 },
+  //       { name: '12:00', value: 65 },
+  //       { name: '16:00', value: 63 },
+  //       { name: '20:00', value: 61 },
+  //     ]
+  //   },
+  // ]);
 
   // const [dashboardItems, setDashboardItems] = useState<DashboardItem[]>([
   //   { id: 'item1', type: 'sensor', content: rooms[0].sensors[0] },
@@ -257,16 +306,17 @@ if (selectedItemType === 'sensor') {
           content: {...controlToAdd, room: selectedRoom, shelf: selectedShelf} 
         };
       }
-    } else if (selectedItemType === 'graph') {
+    } else if (selectedItemType === 'graph' ) {
       const graphToAdd = graphs.find(graph => graph.id === selectedItem);
       if (graphToAdd) {
         newItem = { 
           id: `item${dashboardItems.length + 1}`, 
           type: 'graph', 
-          content: {...graphToAdd, room: selectedRoom} 
+          content: {...graphToAdd, room: selectedRoom, shelf: selectedShelf} 
         };
       }
-    }
+   }
+   
 
     if (newItem && !dashboardItems.some(item => item.content.id === newItem!.content.id)) {
       setDashboardItems([...dashboardItems, newItem]);
@@ -441,7 +491,7 @@ if (selectedItemType === 'sensor') {
 </Select>
 
                 </div>
-                {selectedItemType !== 'graph' && (
+                {selectedItemType !== null && (
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="shelf" className="text-right">
                       Shelf
@@ -461,9 +511,10 @@ if (selectedItemType === 'sensor') {
 
                   </div>
                 )}
+
 <div className="grid grid-cols-4 items-center gap-4">
   <Label htmlFor="item" className="text-right">
-    {selectedItemType === 'sensor' ? 'Sensor' : selectedItemType === 'control' ? 'Control' : 'Graph'}
+    {selectedItemType === 'sensor' ? 'Sensor' : selectedItemType === 'control' ? selectedItemType === 'graph' : 'Graph'}
   </Label>
   <Select value={selectedItem} onValueChange={setSelectedItem}>
     <SelectTrigger className="col-span-3">
@@ -480,8 +531,34 @@ if (selectedItemType === 'sensor') {
               {sensor.name}
             </SelectItem>
           ))}
-    </SelectContent>
-  </Select>
+        {selectedItemType === 'control' &&
+        roomsAndSensors
+        .find(room => room.id === selectedRoom)
+        ?.sensors
+        .filter(sensor => sensor.shelfId === selectedShelf) // Filter sensors based on the selected shelf
+        .map(sensor => (
+          <SelectItem key={sensor.id} value={sensor.id}>
+            {sensor.name}
+          </SelectItem>
+        ))
+        }
+  {selectedItemType === 'graph' ? (
+    filteredGraphs.length > 0 ? (
+      filteredGraphs.map(graph => (
+        <SelectItem key={graph.id} value={graph.id}>
+          {graph.name}
+        </SelectItem>
+      ))
+    ) : (
+      // Fallback message when no graphs are available
+      <p>No graphs available for the selected shelf.</p>
+    )
+  ) : (
+    // Handle case when the selectedItemType is not 'graph'
+    <p>Please select a valid graph item.</p>
+  )}
+      </SelectContent>
+    </Select>
 </div>
 
               </div>
@@ -507,90 +584,92 @@ if (selectedItemType === 'sensor') {
           strategy={verticalListSortingStrategy}
         >
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {dashboardItems.map((item) => {
-              const locationInfo = getRoomAndShelfInfo(item);
-              return (
-                <SortableItem key={item.id} id={item.id} isArranging={isArranging}>
-                  <Collapsible open={!collapsedItems.has(item.id)}>
-                    <Card className={isArranging ? 'opacity-75' : ''} >
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <div>
-                          <CardTitle className="dark:text-white">{item.content.name}</CardTitle>
-                          <CardDescription className="text-gray-600 dark:text-gray-400">
-                            {locationInfo?.roomName} - Shelf {locationInfo?.shelf}
-                          </CardDescription>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="icon" onClick={() => toggleItemCollapse(item.id)}>
-                              {collapsedItems.has(item.id) ? (
-                                <ChevronDown className="h-4 w-4" />
-                              ) : (
-                                <ChevronUp className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </CollapsibleTrigger>
-                          <Button variant="ghost" size="icon" onClick={() => removeItem(item.id)}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CollapsibleContent>
-                        <CardContent>
-                          {item.type === 'sensor' && (
-                            <CircularGauge 
-                              value={(item.content as Sensor).value} 
-                              max={(item.content as Sensor).max} 
-                              label={(item.content as Sensor).type}
-                              room={locationInfo?.roomName || ''}
-                              shelf={locationInfo?.shelf || ''}
-                            />
-                          )}
-                          {item.type === 'control' && (item.content as Control).type === 'slider' && (
-                            <ControlSlider
-                              label={(item.content as Control).name}
-                              value={(item.content as Control).value}
-                              max={(item.content as Control).max || 100}
-                              onChange={([value]) => {
-                                const updatedControls = controls.map(control =>
-                                  control.id === item.content.id ? { ...control, value } : control
-                                );
-                                setControls(updatedControls);
-                              }}
-                            />
-                          )}
-                          {item.type === 'control' && (item.content as Control).type === 'switch' && (
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium">{(item.content as Control).value ? 'ON' : 'OFF'}</span>
-                              <Switch
-                                checked={(item.content as Control).value === 1}
-                                onCheckedChange={(checked) => {
-                                  const updatedControls = controls.map(control =>
-                                    control.id === item.content.id ? { ...control, value: checked ? 1 : 0 } : control
-                                  );
-                                  setControls(updatedControls);
-                                }}
-                              />
-                            </div>
-                          )}
-                          {item.type === 'graph' && (
-                            <ResponsiveContainer width="100%" height={200}>
-                              <LineChart data={(item.content as Graph).data}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="name" />
-                                <YAxis />
-                                <Tooltip />
-                                <Line type="monotone" dataKey="value" stroke="#8884d8" />
-                              </LineChart>
-                            </ResponsiveContainer>
-                          )}
-                        </CardContent>
-                      </CollapsibleContent>
-                    </Card>
-                  </Collapsible>
-                </SortableItem>
-              );
-            })}
+
+{dashboardItems.map((item) => {
+  const locationInfo = getRoomAndShelfInfo(item);
+  return (
+    <SortableItem key={item.id} id={item.id} isArranging={isArranging}>
+      <Collapsible open={!collapsedItems.has(item.id)}>
+        <Card className={isArranging ? 'opacity-75' : ''}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle className="dark:text-white">{item.content.name}</CardTitle>
+              <CardDescription className="text-gray-600 dark:text-gray-400">
+                {locationInfo?.roomName} - Shelf {locationInfo?.shelf}
+              </CardDescription>
+            </div>
+            <div className="flex items-center space-x-2">
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => toggleItemCollapse(item.id)}>
+                  {collapsedItems.has(item.id) ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronUp className="h-4 w-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <Button variant="ghost" size="icon" onClick={() => removeItem(item.id)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent>
+              {item.type === 'sensor' && (
+                <CircularGauge 
+                  value={(item.content as Sensor).value} 
+                  max={(item.content as Sensor).max} 
+                  label={(item.content as Sensor).type}
+                  room={locationInfo?.roomName || ''}
+                  shelf={locationInfo?.shelf || ''}
+                />
+              )}
+              {item.type === 'control' && (item.content as Control).type === 'slider' && (
+                <ControlSlider
+                  label={(item.content as Control).name}
+                  value={(item.content as Control).value}
+                  max={(item.content as Control).max || 100}
+                  onChange={([value]) => {
+                    const updatedControls = controls.map(control =>
+                      control.id === item.content.id ? { ...control, value } : control
+                    );
+                    setControls(updatedControls);
+                  }}
+                />
+              )}
+              {item.type === 'control' && (item.content as Control).type === 'switch' && (
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">{(item.content as Control).value ? 'ON' : 'OFF'}</span>
+                  <Switch
+                    checked={(item.content as Control).value === 1}
+                    onCheckedChange={(checked) => {
+                      const updatedControls = controls.map(control =>
+                        control.id === item.content.id ? { ...control, value: checked ? 1 : 0 } : control
+                      );
+                      setControls(updatedControls);
+                    }}
+                  />
+                </div>
+              )}
+              {item.type === 'graph' && (
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={(item.content as Graph).data}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="value" stroke="#8884d8" />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+    </SortableItem>
+  );
+})}
+
           </div>
         </SortableContext>
       </DndContext>
