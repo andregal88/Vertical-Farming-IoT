@@ -155,7 +155,7 @@ def fetch_sensors_from_db(selected_shelve_ids):
 # Main function to fetch data from FIWARE and insert it into MySQL
 def main():
     # Example: list of shelve IDs you want to use to fetch running sensors
-    selected_shelve_ids = [1]  # Replace with actual shelve IDs
+    selected_shelve_ids = [42]  # Replace with actual shelve IDs
 
     while True:
         print("Starting a new fetch and insert cycle...")

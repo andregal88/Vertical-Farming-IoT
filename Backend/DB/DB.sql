@@ -5,6 +5,7 @@ CREATE TABLE `Users`(
     `email` VARCHAR(255) NOT NULL,
     `password` VARCHAR(255) NOT NULL,
     `active` BOOLEAN NOT NULL
+    'token' VARCHAR(2048) NOT NULL   
 );
 CREATE TABLE `userRoles`(
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,

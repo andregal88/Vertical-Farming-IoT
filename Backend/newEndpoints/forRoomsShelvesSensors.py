@@ -21,46 +21,87 @@ def connect_db():
 
 @app.route('/get_rooms_with_shelves_and_sensors', methods=['GET'])
 def get_rooms_with_shelves_and_sensors():
-    # print("Request Headers:", request.headers["token"])
+    user_id = request.args.get('user_id')  # Get user_id from request arguments
+    user_role = request.args.get('role')  # Get user role from request arguments
     
+    print("Request Headers:", request.headers)
+
     connection = connect_db()
     if connection:
         cursor = connection.cursor(dictionary=True)
         
         try:
-            query = """
-            SELECT 
-                r.id AS room_id,
-                r.name AS room_name,
-                r.address,
-                r.city,
-                r.roomNumber AS room_number,
-                r.floor,
-                ct.name AS crop_type,
-                u.name AS user_name,
-                s.id AS shelf_id,
-                sn.id AS sensor_id,
-                sn.name AS sensor_name,
-                sn.sensorType AS sensor_type,
-                sn.status AS sensor_status,
-                dh.value AS sensor_value,
-                dh.timestamp AS sensor_value_timestamp
-            FROM Rooms r
-            JOIN cropType ct ON r.cropType_id = ct.id
-            JOIN Users u ON r.user_id = u.id
-            LEFT JOIN Shelves s ON s.room_id = r.id
-            LEFT JOIN Sensors sn ON sn.shelve_id = s.id
-            LEFT JOIN (
-                SELECT sensor_id, value, timestamp
-                FROM dataHistory
-                WHERE (sensor_id, timestamp) IN (
-                    SELECT sensor_id, MAX(timestamp)
+            # If user is an Admin, show all rooms, shelves, and sensors
+            if user_role == 'Admin':
+                query = """
+                SELECT 
+                    r.id AS room_id,
+                    r.name AS room_name,
+                    r.address,
+                    r.city,
+                    r.roomNumber AS room_number,
+                    r.floor,
+                    ct.name AS crop_type,
+                    u.name AS user_name,
+                    s.id AS shelf_id,
+                    sn.id AS sensor_id,
+                    sn.name AS sensor_name,
+                    sn.sensorType AS sensor_type,
+                    sn.status AS sensor_status,
+                    dh.value AS sensor_value,
+                    dh.timestamp AS sensor_value_timestamp
+                FROM Rooms r
+                JOIN cropType ct ON r.cropType_id = ct.id
+                JOIN Users u ON r.user_id = u.id
+                LEFT JOIN Shelves s ON s.room_id = r.id
+                LEFT JOIN Sensors sn ON sn.shelve_id = s.id
+                LEFT JOIN (
+                    SELECT sensor_id, value, timestamp
                     FROM dataHistory
-                    GROUP BY sensor_id
-                )
-            ) dh ON dh.sensor_id = sn.id;
-            """
-            cursor.execute(query)
+                    WHERE (sensor_id, timestamp) IN (
+                        SELECT sensor_id, MAX(timestamp)
+                        FROM dataHistory
+                        GROUP BY sensor_id
+                    )
+                ) dh ON dh.sensor_id = sn.id;
+                """
+            else:
+                # If the user is not an Admin, filter based on their associated rooms
+                query = """
+                SELECT 
+                    r.id AS room_id,
+                    r.name AS room_name,
+                    r.address,
+                    r.city,
+                    r.roomNumber AS room_number,
+                    r.floor,
+                    ct.name AS crop_type,
+                    u.name AS user_name,
+                    s.id AS shelf_id,
+                    sn.id AS sensor_id,
+                    sn.name AS sensor_name,
+                    sn.sensorType AS sensor_type,
+                    sn.status AS sensor_status,
+                    dh.value AS sensor_value,
+                    dh.timestamp AS sensor_value_timestamp
+                FROM Rooms r
+                JOIN cropType ct ON r.cropType_id = ct.id
+                JOIN Users u ON r.user_id = u.id
+                LEFT JOIN Shelves s ON s.room_id = r.id
+                LEFT JOIN Sensors sn ON sn.shelve_id = s.id
+                LEFT JOIN (
+                    SELECT sensor_id, value, timestamp
+                    FROM dataHistory
+                    WHERE (sensor_id, timestamp) IN (
+                        SELECT sensor_id, MAX(timestamp)
+                        FROM dataHistory
+                        GROUP BY sensor_id
+                    )
+                ) dh ON dh.sensor_id = sn.id
+                WHERE r.user_id = %s;  -- Filter by the user_id for non-admin users
+                """
+            
+            cursor.execute(query, (user_id,) if user_role != 'Admin' else ())
             rows = cursor.fetchall()
 
             if not rows:

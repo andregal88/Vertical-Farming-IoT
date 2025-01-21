@@ -125,30 +125,60 @@ def create_room():
 # Function to fetch room data
 @app.route('/get_rooms', methods=['GET'])
 def get_rooms():
+    # Get user info from the request (assumed to be passed as query params or headers)
+    user_id = request.args.get('user_id')
+    user_role = request.args.get('role')
+    
+    # Validate user_id and role
+    if not user_id or not user_role:
+        return jsonify({"message": "User ID and role are required."}), 400
+
     # Connect to the database
     connection = connect_db()
     if connection:
         cursor = connection.cursor(dictionary=True)  # Use dictionary=True for column names in the result
         
         try:
-            # Fetch all room data along with their crop type and user details
-            query = """
-                SELECT 
-                    r.id AS room_id,
-                    r.name AS room_name,
-                    r.address,
-                    r.city,
-                    r.roomNumber AS room_number,
-                    r.floor,
-                    ct.name AS crop_type,
-                    u.name AS user_name
-                FROM Rooms r
-                JOIN cropType ct ON r.cropType_id = ct.id
-                JOIN Users u ON r.user_id = u.id
-            """
-            cursor.execute(query)
-            rooms = cursor.fetchall()
+            # If the user is an admin, fetch all rooms
+            if user_role == 'Admin':
+                query = """
+                    SELECT 
+                        r.id AS room_id,
+                        r.name AS room_name,
+                        r.address,
+                        r.city,
+                        r.roomNumber AS room_number,
+                        r.floor,
+                        ct.name AS crop_type,
+                        u.name AS user_name
+                    FROM Rooms r
+                    JOIN cropType ct ON r.cropType_id = ct.id
+                    JOIN Users u ON r.user_id = u.id
+                """
+                cursor.execute(query)
+                rooms = cursor.fetchall()
 
+            # If the user is not an admin, fetch only rooms assigned to the user
+            else:
+                query = """
+                    SELECT 
+                        r.id AS room_id,
+                        r.name AS room_name,
+                        r.address,
+                        r.city,
+                        r.roomNumber AS room_number,
+                        r.floor,
+                        ct.name AS crop_type,
+                        u.name AS user_name
+                    FROM Rooms r
+                    JOIN cropType ct ON r.cropType_id = ct.id
+                    JOIN Users u ON r.user_id = u.id
+                    WHERE r.user_id = %s
+                """
+                cursor.execute(query, (user_id,))
+                rooms = cursor.fetchall()
+
+            # If no rooms are found, return a message
             if not rooms:
                 return jsonify({"message": "No rooms found."}), 404
 
