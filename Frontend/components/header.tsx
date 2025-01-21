@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { useAuth } from '@/lib/auth'
+import { jwtDecode } from 'jwt-decode'
+
 
 export function Header() {
   const [isDark, setIsDark] = useState(false)
@@ -23,32 +25,62 @@ export function Header() {
 
   const [notifications, setNotifications] = useState<any[]>([]);  // State to hold notifications
 
+  const storedUser = localStorage.getItem('user');
+  const storedToken = localStorage.getItem('authToken');
+  
+  // Ensure that the token exists and is valid
+  if (!storedToken) {
+    console.error('Auth token is missing');
+    return;
+  }
+  
+  // Decode the token to extract user_id and role
+  let userId = null;
+  let userRole = null;
+  try {
+    const decodedToken = jwtDecode(storedToken);
+    userId = decodedToken.id;
+    userRole = decodedToken.role;
+  } catch (error) {
+    console.error('Failed to decode token:', error);
+    return;
+  }
+  
   // Fetch the 3 most recent logs from the API
   const fetchLogs = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:5015/sensor-maintenance');
+      const response = await fetch(`http://127.0.0.1:5015/sensor-maintenance?user_id=${userId}&role=${userRole}`, {
+        headers: {
+          Authorization: `Bearer ${storedToken}`, // Use storedToken instead of user.token
+        },
+      });
+  
+      if (!response.ok) {
+        throw new Error('Failed to fetch logs');
+      }
+  
       const data = await response.json();
-      
+  
       if (data.status === 'success') {
         // Filter for warnings and criticals, and take only the last 3 of each
         const logs = data.data
-          .filter((log: any) => log.status === "Warning" || log.status === "Critical")  // Filter only "Warning" or "Critical" logs
-          .slice(0, 3)  // Get the most recent 3 logs
-          .map((log: any) => ({
+          .filter((log) => log.status === 'Warning' || log.status === 'Critical') // Filter only "Warning" or "Critical" logs
+          .slice(0, 3) // Get the most recent 3 logs
+          .map((log) => ({
             id: log.id,
-            message: log.review,  // Use 'review' as the notification message
-            sensorId: log.sensor_id,  // Show sensor ID
-            status: log.status,  // Include the status (Warning or Critical)
-            timestamp: log.datetime_review,  // Optionally include the timestamp
+            message: log.review, // Use 'review' as the notification message
+            sensorId: log.sensor_id, // Show sensor ID
+            status: log.status, // Include the status (Warning or Critical)
+            timestamp: log.datetime_review, // Optionally include the timestamp
           }));
-        
+  
         // If there are new logs, update the notifications state
         setNotifications((prevNotifications) => {
           // Only add new notifications that are not already in the state
           const newNotifications = logs.filter((newNotification) =>
             !prevNotifications.some((existingNotification) => existingNotification.id === newNotification.id)
           );
-          
+  
           return [...newNotifications, ...prevNotifications]; // Add new notifications at the front
         });
       } else {
@@ -58,7 +90,6 @@ export function Header() {
       console.error('Error fetching logs:', error);
     }
   };
-
   // Use useEffect to poll for new notifications every 30 seconds
   useEffect(() => {
     fetchLogs();  // Fetch on initial load
@@ -170,43 +201,49 @@ export function Header() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
-            {notifications.length === 0 ? (
-              <DropdownMenuItem>No new notifications</DropdownMenuItem>
-            ) : (
-              <>
-                <div className="flex justify-between items-center p-2 border-b">
-                  <span className="font-semibold">Warnings & Critical Logs</span>
-                  <Button variant="ghost" size="sm" onClick={clearAllNotifications}>
-                    Clear All
-                  </Button>
-                </div>
-                {notifications.map((notification) => (
-                  <DropdownMenuItem 
-                    key={notification.id} 
-                    className={`flex items-center justify-between p-2 rounded-md ${
-                      notification.status === 'Warning' 
-                        ? 'bg-yellow-300 bg-opacity-75 text-black p-4 rounded'
-                        : notification.status === 'Critical' 
-                        ? 'bg-red-600 bg-opacity-75 text-black p-4 rounded'
-                        : ''
-                    }`}
-                  >
-                    <span>{`${notification.message} (Sensor: ${notification.sensorId})`}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        removeNotification(notification.id);
-                      }}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuItem>
-                ))}
-              </>
-            )}
-          </DropdownMenuContent>
+  {notifications.length === 0 ? (
+    <DropdownMenuItem>No new notifications</DropdownMenuItem>
+  ) : (
+    <>
+      <div className="flex justify-between items-center p-2 border-b">
+        <span className="font-semibold">Warnings & Critical Logs</span>
+        <Button variant="ghost" size="sm" onClick={clearAllNotifications}>
+          Clear All
+        </Button>
+      </div>
+      {/* Scrollable notifications list */}
+      <div
+        className="max-h-48 overflow-y-auto"
+      >
+        {notifications.map((notification) => (
+          <DropdownMenuItem
+            key={notification.id}
+            className={`flex items-center justify-between p-2 rounded-md ${
+              notification.status === 'Warning'
+                ? 'bg-yellow-300 bg-opacity-75 text-black p-4 rounded'
+                : notification.status === 'Critical'
+                ? 'bg-red-600 bg-opacity-75 text-black p-4 rounded'
+                : ''
+            }`}
+          >
+            <span>{`${notification.message} (Sensor: ${notification.sensorId})`}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.preventDefault();
+                removeNotification(notification.id);
+              }}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </DropdownMenuItem>
+        ))}
+      </div>
+    </>
+  )}
+</DropdownMenuContent>
+
         </DropdownMenu>
         <Button
           variant="outline"

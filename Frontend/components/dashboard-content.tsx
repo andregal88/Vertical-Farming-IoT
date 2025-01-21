@@ -17,7 +17,8 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, v
 import { CSS } from '@dnd-kit/utilities'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Progress } from "@/components/ui/progress"
-
+import { jwtDecode } from "jwt-decode"
+import { useAuth } from "@/lib/auth";
 
 interface Sensor {
   id: string;
@@ -102,16 +103,73 @@ export function DashboardContent() {
   const [selectedShelf, setSelectedShelf] = useState<string | null>(null); // Selected shelf
   const [selectedShelf2, setSelectedShelf2] = useState<string | null>(null); // Selected shelf
   const [dashboardItems, setDashboardItems] = useState<DashboardItem[]>([]); // Dashboard items
+  const { user, loading } = useAuth(); // Get the current user and loading state from the auth hook
 
   // State for storing graph data
   const [graphs, setGraphData] = useState<Graph[]>([]);
   const [cropTypes, setCropTypes] = useState<{ id: number, name: string }[]>([]); // State to store crop types
   const [selectedCropType, setSelectedCropType] = useState<string>(''); // Selected crop type
 
+  // useEffect(() => {
+  //   // Retrieve the user from localStorage (or from a global state/context)
+  //   const storedToken = localStorage.getItem('authToken');
+  //   if (!storedToken) {
+  //     // Handle token absence (redirect to login, show error, etc.)
+  //     console.log('No token found');
+  //     return;
+  //   }
+
+  //   // Decode the token to get user_id and role
+  //   const decodedToken: any = jwtDecode(storedToken);
+  //   const userId = decodedToken.id;
+  //   const userRole = decodedToken.role;
+
+
+  //   // Fetch sensor data
+  //   const fetchData = async () => {
+  //     try {
+  //       const response = await axios.get(`http://127.0.0.1:5001/sensors?user_id=${userId}&role=${userRole}`, { 
+  //         headers: {
+  //           Authorization: `Bearer ${storedToken}`, // Include token in Authorization header
+  //         },
+  //       });
+
+  //       setSensors(response.data);  // Update sensors state with the fetched data
+  //     } catch (error) {
+  //       console.error('Error fetching sensor maintenance logs:', error);
+  //     }
+  //   };
+
+  //   // Fetch data initially
+  //   fetchData();
+
+  //   // Set up polling interval (10 seconds)
+  //   const interval = setInterval(fetchData, 10000);
+
+  //   // Cleanup interval on component unmount
+  //   return () => clearInterval(interval);
+  // }, [loading]); 
+
+
   // Fetching room and sensor data
   useEffect(() => {
+
     const interval = setInterval(() => {
-      fetch('http://127.0.0.1:5017/get_rooms_with_shelves_and_sensors')
+      // Retrieve the user from localStorage (or from a global state/context)
+      const storedToken = localStorage.getItem('authToken');
+      if (!storedToken) {
+        // Handle token absence (redirect to login, show error, etc.)
+        console.log('No token found');
+        return;
+      }
+  
+      // Decode the token to get user_id and role
+      const decodedToken: any = jwtDecode(storedToken);
+      const userId = decodedToken.id;
+      const userRole = decodedToken.role;
+  
+      // Use template literals to correctly interpolate userId and userRole in the URL
+      fetch(`http://127.0.0.1:5017/get_rooms_with_shelves_and_sensors?user_id=${userId}&role=${userRole}`)
         .then(response => response.json())
         .then(data => {
           const updatedRooms = data.rooms.map((room: any) => ({
@@ -128,6 +186,11 @@ export function DashboardContent() {
               }))
             ),
           }));
+  
+          // Here, you can do something with updatedRooms (e.g., set state)
+          console.log(updatedRooms);
+
+  
   
           setRoomsAndSensors(updatedRooms);
           setRoomsAndSensors2(updatedRooms);
@@ -156,7 +219,7 @@ export function DashboardContent() {
     }, 10000); // Auto-update every 10 seconds
   
     return () => clearInterval(interval); // Clean up the interval on component unmount
-  }, []); 
+  }, [loading]); 
   
 
 
