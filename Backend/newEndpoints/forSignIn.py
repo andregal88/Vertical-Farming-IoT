@@ -2,7 +2,8 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import mysql.connector
 import jwt  # Import PyJWT
-from datetime import datetime, timedelta
+import uuid  # For generating unique IDs
+from datetime import datetime, timedelta, timezone
 
 app = Flask(__name__)
 CORS(app)
@@ -20,12 +21,17 @@ SECRET_KEY = "1234"  # Replace this with a strong secret key
 
 # Function to generate JWT
 def generate_token(user_id, username, role, rooms):
+    current_time = datetime.now(timezone.utc)
+    timestamp = int(current_time.timestamp())
+    
     payload = {
         "id": user_id,
         "username": username,
         "role": role,
         "rooms": rooms,
-        "exp": datetime.utcnow() + timedelta(hours=1)  # Token expires in 1 hour
+        "iat": timestamp,  # Issued at time
+        "exp": timestamp + 3600,  # Expiration time (1 hour from now)
+        "jti": str(uuid.uuid4())  # Unique identifier for the token
     }
     token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
     return token
