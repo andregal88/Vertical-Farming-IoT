@@ -42,11 +42,11 @@ export default function LogsPage() {
     return () => clearInterval(interval);
   }, []); // Dependency array left empty to ensure this effect runs only once on mount
   
-
   // Filter logs based on the search term and filter type
   const filteredLogs = logs.filter(log => 
     (log.review.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     log.sensor_id.toString().includes(searchTerm)) &&
+     log.sensor_id.toString().includes(searchTerm) ||
+     log.sensor_name.toLowerCase().includes(searchTerm.toLowerCase())) && // Added search by sensor_name
     (filterType === 'all' || log.status.toLowerCase() === filterType.toLowerCase())
   )
 
@@ -69,9 +69,9 @@ export default function LogsPage() {
 
   const handleExportLogs = () => {
     const csvContent = [
-      ['Timestamp', 'Sensor ID', 'Review', 'Datetime Review', 'Status'],
+      ['Timestamp', 'Sensor Name', 'Sensor ID', 'Review', 'Datetime Review', 'Status'],
       ...currentLogs.map(log => [
-        log.timestamp, log.sensor_id, log.review, log.datetime_review, log.status
+        log.timestamp, log.sensor_name, log.sensor_id, log.review, log.datetime_review, log.status
       ])
     ].map(e => e.join(",")).join("\n")
 
@@ -83,11 +83,11 @@ export default function LogsPage() {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto py-6">
-        <h1 className="text-3xl font-bold mb-6">Sensor Maintenance Logs</h1>
+        <h1 className="text-3xl font-bold mb-6">Sensors Alert Logs</h1>
         <Card>
           <CardHeader>
             <CardTitle>Log Management</CardTitle>
-            <CardDescription>View and filter sensor maintenance logs</CardDescription>
+            <CardDescription>View and filter sensors alert logs</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex justify-between items-end gap-4 mb-4">
@@ -95,7 +95,7 @@ export default function LogsPage() {
                 <Label htmlFor="search">Search Logs</Label>
                 <Input
                   id="search"
-                  placeholder="Search by review or sensor ID"
+                  placeholder="Search by review, sensor ID, or sensor name"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -120,6 +120,7 @@ export default function LogsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Timestamp</TableHead>
+                  <TableHead>Sensor Name</TableHead>
                   <TableHead>Sensor ID</TableHead>
                   <TableHead>Review</TableHead>
                   <TableHead>Datetime Review</TableHead>
@@ -130,6 +131,7 @@ export default function LogsPage() {
                 {currentLogs.map((log) => (
                   <TableRow key={log.id}>
                     <TableCell>{log.timestamp}</TableCell>
+                    <TableCell>{log.sensor_name}</TableCell>
                     <TableCell>{log.sensor_id}</TableCell>
                     <TableCell>{log.review}</TableCell>
                     <TableCell>{log.datetime_review}</TableCell>
@@ -144,65 +146,63 @@ export default function LogsPage() {
             </Table>
 
             <div className="flex justify-between mt-4 items-center">
-  {/* First Page Button */}
-  <Button disabled={currentPage === 1} onClick={() => setCurrentPage(1)}>
-    First
-  </Button>
+              {/* First Page Button */}
+              <Button disabled={currentPage === 1} onClick={() => setCurrentPage(1)}>
+                First
+              </Button>
 
-  {/* Previous Page Button */}
-  <Button disabled={currentPage === 1} onClick={() => setCurrentPage(currentPage - 1)}>
-    Previous
-  </Button>
+              {/* Previous Page Button */}
+              <Button disabled={currentPage === 1} onClick={() => setCurrentPage(currentPage - 1)}>
+                Previous
+              </Button>
 
-  {/* Page Numbers */}
-  <div className="flex gap-2">
-    {/* Display 1st page button if needed */}
-    {currentPage > 3 && (
-      <Button onClick={() => setCurrentPage(1)}>1</Button>
-    )}
+              {/* Page Numbers */}
+              <div className="flex gap-2">
+                {/* Display 1st page button if needed */}
+                {currentPage > 3 && (
+                  <Button onClick={() => setCurrentPage(1)}>1</Button>
+                )}
 
-    {/* Display "..." if skipped pages */}
-    {currentPage > 4 && <span className="px-2">...</span>}
+                {/* Display "..." if skipped pages */}
+                {currentPage > 4 && <span className="px-2">...</span>}
 
-    {/* Display pages around the current page */}
-    {Array.from({ length: 5 }).map((_, index) => {
-      const page = currentPage - 2 + index;
-      // Only render valid page numbers within the range
-      if (page > 0 && page <= totalPages) {
-        return (
-          <Button
-            key={page}
-            variant={page === currentPage ? 'outline' : 'default'}
-            onClick={() => setCurrentPage(page)}
-          >
-            {page}
-          </Button>
-        );
-      }
-      return null;
-    })}
+                {/* Display pages around the current page */}
+                {Array.from({ length: 5 }).map((_, index) => {
+                  const page = currentPage - 2 + index;
+                  // Only render valid page numbers within the range
+                  if (page > 0 && page <= totalPages) {
+                    return (
+                      <Button
+                        key={page}
+                        variant={page === currentPage ? 'outline' : 'default'}
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </Button>
+                    );
+                  }
+                  return null;
+                })}
 
-    {/* Display "..." if skipped pages */}
-    {currentPage < totalPages - 3 && <span className="px-2">...</span>}
+                {/* Display "..." if skipped pages */}
+                {currentPage < totalPages - 3 && <span className="px-2">...</span>}
 
-    {/* Display last page button if needed */}
-    {currentPage < totalPages - 2 && (
-      <Button onClick={() => setCurrentPage(totalPages)}>{totalPages}</Button>
-    )}
-  </div>
+                {/* Display last page button if needed */}
+                {currentPage < totalPages - 2 && (
+                  <Button onClick={() => setCurrentPage(totalPages)}>{totalPages}</Button>
+                )}
+              </div>
 
-  {/* Next Page Button */}
-  <Button disabled={currentPage === totalPages} onClick={() => setCurrentPage(currentPage + 1)}>
-    Next
-  </Button>
+              {/* Next Page Button */}
+              <Button disabled={currentPage === totalPages} onClick={() => setCurrentPage(currentPage + 1)}>
+                Next
+              </Button>
 
-  {/* Last Page Button */}
-  <Button disabled={currentPage === totalPages} onClick={() => setCurrentPage(totalPages)}>
-    Last
-  </Button>
-</div>
-
-
+              {/* Last Page Button */}
+              <Button disabled={currentPage === totalPages} onClick={() => setCurrentPage(totalPages)}>
+                Last
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </main>
