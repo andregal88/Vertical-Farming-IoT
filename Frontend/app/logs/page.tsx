@@ -18,23 +18,30 @@ export default function LogsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [logsPerPage] = useState(10) // Set how many logs to show per page
 
-  // Fetch logs from the backend
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:5015/sensor-maintenance') // Your existing endpoint
+        const response = await fetch('http://127.0.0.1:5015/sensor-maintenance'); // Your existing endpoint
         if (!response.ok) {
-          throw new Error('Failed to fetch logs')
+          throw new Error('Failed to fetch logs');
         }
-        const data = await response.json()
-        setLogs(data.data) // Assuming the logs are in the "data" key of the API response
+        const data = await response.json();
+        setLogs(data.data); // Assuming the logs are in the "data" key of the API response
       } catch (error) {
-        console.error('Error fetching logs:', error)
+        console.error('Error fetching logs:', error);
       }
-    }
-
-    fetchLogs()
-  }, [])
+    };
+  
+    // Fetch logs initially
+    fetchLogs();
+  
+    // Set up polling interval
+    const interval = setInterval(fetchLogs, 10000); // Fetch logs every 10 seconds
+  
+    // Cleanup interval on component unmount
+    return () => clearInterval(interval);
+  }, []); // Dependency array left empty to ensure this effect runs only once on mount
+  
 
   // Filter logs based on the search term and filter type
   const filteredLogs = logs.filter(log => 

@@ -1,6 +1,6 @@
 'use client'
 import axios from 'axios'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Header } from "@/components/header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { DialogTrigger } from "@/components/ui/dialog";
+import { DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Link from 'next/link'
@@ -24,8 +24,52 @@ export default function DevicesAndSensorsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [rooms, setRooms] = useState([]);
   const [devices, setDevices] = useState([]);  // Initially empty array for devices
+  const [selectedRoom, setSelectedRoom] = useState<string | null>(null); // Selected room
+  const [selectedShelfSoil, setSelectedShelfSoil] = useState<string | null>(null); // Selected shelf
+  const [roomsAndSensors, setRoomsAndSensors] = useState([]); // Rooms with sensors data
+  const [roomsAndSensors2, setRoomsAndSensors2] = useState([]); // Rooms with sensors data
 
+    // Fetching room and sensor data
+    useEffect(() => {
+      const fetchRoomsAndSensors = async () => {
+        try {
+          const roomsResponse = await fetch('http://127.0.0.1:5017/get_rooms_with_shelves_and_sensors');
+          const roomsData = await roomsResponse.json();
   
+          const combinedRooms = roomsData.rooms.map((room: any) => ({
+            id: `room${room.room_id}`,
+            name: room.room_name,
+            sensors: room.shelves.flatMap((shelf: any) =>
+              shelf.sensors.map((sensor: any) => ({
+                id: `sensor${sensor.sensor_id}`,
+                name: sensor.name,
+                type: sensor.sensor_type,
+                value: sensor.last_value,
+                room: room.room_name,
+                shelfId: `shelf${shelf.shelf_id}`,
+              }))
+            ),
+            shelves: room.shelves.map((shelf: any) => ({
+              id: `shelf${shelf.shelf_id}`,
+              name: shelf.shelf_name,
+              sensors: shelf.sensors.map((sensor: any) => ({
+                id: `sensor${sensor.sensor_id}`,
+                name: sensor.name,
+              }))
+            }))
+          }));
+
+          setRoomsAndSensors(combinedRooms);
+          setRoomsAndSensors2(combinedRooms);
+        } catch (error) {
+          console.error('Error fetching rooms and sensors data:', error);
+        }
+      };
+  
+      fetchRoomsAndSensors();
+    }, []);
+  
+    
   // Fetch devices from the API
   useEffect(() => {
     const fetchDevices = async () => {
@@ -39,6 +83,11 @@ export default function DevicesAndSensorsPage() {
     };
 
     fetchDevices();
+    // Set up polling interval
+    const interval = setInterval(fetchDevices, 10000); // Fetch logs every 10 seconds
+
+    // Cleanup interval on component unmount
+    return () => clearInterval(interval);
   }, []);  
 
   // Fetch data from the API
@@ -54,26 +103,47 @@ export default function DevicesAndSensorsPage() {
     };
 
     fetchRooms();
+
+
+    // Set up polling interval
+    const interval = setInterval(fetchRooms, 10000); // Fetch data every 10 seconds
+  
+    // Cleanup interval on component unmount
+    return () => clearInterval(interval);
+
   }, []); // Empty dependency array ensures the fetch happens once when the component mounts
 
-
+  // Get shelves for the selected room for first shelf dropdown
+  const getShelvesForRoom = () => {
+    if (!selectedRoom) return [];
+    const selectedRoomData = roomsAndSensors.find(room => room.id === selectedRoom);
+    if (!selectedRoomData) return [];
+  
+    // Extract unique shelf IDs from the sensors in the selected room
+    const uniqueShelves = Array.from(new Set(selectedRoomData.sensors.map((sensor: any) => sensor.shelfId)))
+      .filter((id) => id !== undefined); // Remove undefined values
+  
+    return uniqueShelves;
+  };
   const [devicesPerPage] = useState(10); // Number of devices per page
   const [roomsPerPage] = useState(5); // Number of rooms per page
   
   const [currentDevicePage, setCurrentDevicePage] = useState(1); // Current page for devices
   const [currentRoomPage, setCurrentRoomPage] = useState(1); // Current page for rooms
   
-  const paginateDevices = () => {
+  const paginateDevices = (devicesList = devices) => {
     const startIndex = (currentDevicePage - 1) * devicesPerPage;
     const endIndex = startIndex + devicesPerPage;
-    return devices.slice(startIndex, endIndex);
-  }
+    return devicesList.slice(startIndex, endIndex);
+  };
   
-  const paginateRooms = () => {
-    const startIndex = (currentRoomPage - 1) * roomsPerPage;
-    const endIndex = startIndex + roomsPerPage;
-    return rooms.slice(startIndex, endIndex);
-  }
+  
+const paginateRooms = (roomsToPaginate) => {
+  const startIndex = (currentRoomPage - 1) * roomsPerPage;
+  const endIndex = startIndex + roomsPerPage;
+  return roomsToPaginate.slice(startIndex, endIndex);
+};
+
   
   const renderDevicePagination = () => {
     const totalDevicePages = Math.ceil(devices.length / devicesPerPage);
@@ -234,7 +304,7 @@ export default function DevicesAndSensorsPage() {
   };
   const [newRoomName, setNewRoomName] = useState('')
   const [newRoomShelves, setNewRoomShelves] = useState('3')
-  const [selectedRoom, setSelectedRoom] = useState('')
+  // const [selectedRoom, setSelectedRoom] = useState('')
   const [soilAmount, setSoilAmount] = useState('')
   const [newCropType, setNewCropType] = useState('')
   const [newDevice, setNewDevice] = useState({ name: '', type: '', location: '' })
@@ -288,16 +358,19 @@ export default function DevicesAndSensorsPage() {
     console.log("Crop Types State:", cropTypes)  // Log state to check if cropTypes is updated
   }, [cropTypes])  // Will run whenever cropTypes state is updated
 
+
+
   const addRoom = async () => {
+
     const newRoom = {
       room_name: newRoomName,
       address: newRoomAddress,
       city: newRoomCity,
       room_number: newRoomNumber,
       floor: newRoomFloor,
-      crop_choice: newCropType,  // Ensure this is a numeric ID
+      crop_choice: newCropType, // Ensure this is a numeric ID
       user_choice: newUserId,  // Ensure this is a numeric ID
-      number_of_shelves: parseInt(newNumberOfShelves),  // Ensure it's a number
+      number_of_shelves: parseInt(newNumberOfShelves), // Ensure it's a number
     };
   
     try {
@@ -308,7 +381,25 @@ export default function DevicesAndSensorsPage() {
       });
   
       // Handle success
-      alert(response.data.message);  // Backend's success message
+      alert(response.data.message); // Backend's success message
+  
+      // Append the new room to the state directly
+      const newRoomWithId = {
+        ...newRoom,
+        id: response.data.room_id, // Use the ID returned by the backend, if available
+      };
+  
+      setRooms((prevRooms) => [...prevRooms, newRoomWithId]); // Update the rooms state
+      setRoomsAndSensors((prevRoomsAndSensors) => [
+        ...prevRoomsAndSensors,
+        {
+          id: `room${response.data.room_id}`,
+          name: newRoom.room_name,
+          sensors: [], // Empty initially, add sensors if needed
+          shelves: [], // Empty initially, add shelves if needed
+        },
+      ]);
+  
       // Reset form fields after successful creation
       setNewRoomName('');
       setNewRoomAddress('');
@@ -318,7 +409,6 @@ export default function DevicesAndSensorsPage() {
       setNewCropType('');
       setNewUserId('');
       setNewNumberOfShelves('');
-    
     } catch (error) {
       // Handle any errors
       if (error.response) {
@@ -331,7 +421,40 @@ export default function DevicesAndSensorsPage() {
     }
   };
   
+  const [searchTermRoom, setSearchTermRoom] = useState(""); // Ensure initial value is set
+
+const handleSearchChange = (e) => {
+  const value = e.target.value;
+  setSearchTermRoom(value);
+  console.log("Search Term:", value); // Log the search term
+};
+
+<Input
+  id="search"
+  value={searchTermRoom}
+  onChange={handleSearchChange}
+  placeholder="Search by room name, number, crop type, floor, city or user name"
+/>
+
+const filteredRooms = rooms.filter((room) => {
+  const searchTerm = searchTermRoom.toLowerCase();
+  return (
+    room.room_name.toLowerCase().includes(searchTerm) ||
+    room.room_number.toLowerCase().includes(searchTerm) ||
+    room.crop_type.toLowerCase().includes(searchTerm) ||
+    room.floor.toString().toLowerCase().includes(searchTerm) ||
+    room.city.toLowerCase().includes(searchTerm) ||
+    room.user_name.toLowerCase().includes(searchTerm)
+  );
+});
+
+console.log("Filtered Rooms:", filteredRooms); // Check if filteredRooms array is populated
+
   
+  // Now apply pagination to the filtered list of rooms
+  const roomsToDisplay = paginateRooms(filteredRooms); 
+  console.log("Rooms to Display:", roomsToDisplay); // Check what rooms are being displayed
+
   const removeRoom = () => {
     if (itemToRemove && itemToRemove.type === 'room') {
       setRooms(rooms.filter(room => room.id !== itemToRemove.id))
@@ -367,12 +490,21 @@ export default function DevicesAndSensorsPage() {
     ));
   }
 
-  const filteredDevices = devices.filter(device => 
+const filteredDevices = devices
+  .slice() // Create a shallow copy to avoid mutating the original array
+  .sort((a, b) => {
+    const extractNumber = (name) => {
+      const match = name.match(/_(\d+)$/); // Extract the number at the end of the name
+      return match ? parseInt(match[1], 10) : Infinity; // Default to Infinity if no number is found
+    };
+    return extractNumber(a.name) - extractNumber(b.name); // Sort by the extracted number
+  })
+  .filter(device => 
     device.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     device.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
     device.location.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-  
+  );
+
   const getStatusColor = (status: string | null | undefined) => {
     if (!status) return 'bg-gray-500'; // Default color for null or undefined
     switch (status.toLowerCase()) {
@@ -383,7 +515,9 @@ export default function DevicesAndSensorsPage() {
     }
   }
   
-  
+
+
+
   const removeDevice = () => {
     if (itemToRemove && itemToRemove.type === 'device') {
       setDevices(devices.filter(device => device.id !== itemToRemove.id))
@@ -416,6 +550,15 @@ export default function DevicesAndSensorsPage() {
     return () => clearInterval(interval)
   }, [temperature, humidity, co2Level, phLevel, ecLevel])
 
+  function handleSetControls(roomName, shelfName) {
+    if (!roomName || !shelfName) {
+      alert("Please select a room and shelf before setting controls.");
+      return;
+    }
+  
+    alert(`Environmental controls for ${roomName} and ${shelfName} have been set.`);
+  }
+  
 
   return (
     <div className="min-h-screen bg-background">
@@ -451,65 +594,68 @@ export default function DevicesAndSensorsPage() {
                 <Table>
   <TableHeader>
     <TableRow>
-      <TableHead>Name</TableHead>
-      <TableHead>Type</TableHead>
-      <TableHead>Location</TableHead>
-      <TableHead>Status</TableHead>
-      <TableHead>Values</TableHead> {/* Add the Values column header */}
-      <TableHead>Actions</TableHead>
+      <TableHead className="text-left">Name</TableHead>
+      <TableHead className="text-left">Type</TableHead>
+      <TableHead className="text-left">Location</TableHead>
+      <TableHead className="text-left">Status</TableHead>
+      <TableHead className="text-left">Values</TableHead>
+      <TableHead className="text-center w-[200px]">Actions</TableHead> {/* Set consistent width */}
     </TableRow>
   </TableHeader>
   <TableBody>
-    {paginateDevices(devices).map((device) => (
+    {paginateDevices(filteredDevices).map((device) => (
       <TableRow key={device.id}>
-        <TableCell>{device.name}</TableCell>
-        <TableCell>{device.type}</TableCell>
-        <TableCell>{device.location}</TableCell>
-        <TableCell>
+        <TableCell className="text-left">{device.name}</TableCell>
+        <TableCell className="text-left">{device.type}</TableCell>
+        <TableCell className="text-left">{device.location}</TableCell>
+        <TableCell className="text-left">
           <Badge className={getStatusColor(device.status)}>
             {device.status}
           </Badge>
         </TableCell>
-        <TableCell>{device.lastValue}</TableCell> {/* Display the values */}
-        <TableCell>
+        <TableCell className="text-left">{device.lastValue}</TableCell>
+        <TableCell className="text-center w-[200px] flex justify-center gap-2">
+          {/* Align buttons in the center of the column */}
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="ghost" onClick={() => setEditingDevice(device)}>Edit</Button>
+              <Button
+                variant="ghost"
+                onClick={() => setEditingDevice(device)}
+              >
+                Calibrate
+              </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Edit Device: {editingDevice?.name}</DialogTitle>
-                <DialogDescription>Modify device details or change its status.</DialogDescription>
+                <DialogDescription>
+                  Modify device details or change its status.
+                </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="status">Device Status</Label>
-                  <Switch
-                    id="status"
-                    checked={editingDevice?.status === 'Active'}
-                    onCheckedChange={(checked) => {
-                      updateDeviceStatus(editingDevice?.id, checked ? 'Active' : 'Inactive');
-                      setEditingDevice({...editingDevice, status: checked ? 'Active' : 'Inactive'});
-                    }}
-                  />
-                </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="calibration" className="text-right">Last Calibration</Label>
+                  <Label htmlFor="calibration" className="text-right">
+                    Last Calibration
+                  </Label>
                   <Input id="calibration" type="date" className="col-span-3" />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="maintenance" className="text-right">Next Maintenance</Label>
+                  <Label htmlFor="maintenance" className="text-right">
+                    Next Calibration
+                  </Label>
                   <Input id="maintenance" type="date" className="col-span-3" />
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={() => setEditingDevice(null)}>Close</Button>
+                <DialogClose asChild>
+                  <Button>Close</Button>
+                </DialogClose>
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          <Button 
-            variant="ghost" 
-            className="text-red-500" 
+          <Button
+            variant="ghost"
+            className="text-red-500"
             onClick={() => {
               setItemToRemove({ type: 'device', id: device.id });
               setIsRemoveDialogOpen(true);
@@ -523,12 +669,15 @@ export default function DevicesAndSensorsPage() {
   </TableBody>
 </Table>
 
+
 {/* Render Pagination Controls */}
 {renderDevicePagination()}
 
               </CardContent>
             </Card>
+            
           </TabsContent>
+          
           <TabsContent value="rooms" className="space-y-4">
             <Card>
               <CardHeader>
@@ -536,6 +685,7 @@ export default function DevicesAndSensorsPage() {
                 <CardDescription>Add or remove rooms and manage shelves</CardDescription>
               </CardHeader>
               <CardContent>
+
                 <div className="grid gap-4 md:grid-cols-2 mb-4">
                   {/* Room Name */}
                   <div className="flex-1">
@@ -636,7 +786,19 @@ export default function DevicesAndSensorsPage() {
               {/* Submit Button */}
               <Button className="mt-auto" onClick={addRoom}>Add Room</Button>
             </div>
-            <Table>
+            
+{/* Search Bar */}
+  <div className="mb-4">
+    <Label htmlFor="search">Search Rooms</Label>
+    <Input
+  id="search"
+  value={searchTermRoom}
+  onChange={(e) => setSearchTermRoom(e.target.value)} // Captures the search term correctly
+  placeholder="Search by room name, number, crop type, floor, city or user name"
+/>
+
+  </div>
+            <Table>  
         <TableHeader>
           <TableRow>
             <TableHead>Room Name</TableHead>
@@ -645,40 +807,39 @@ export default function DevicesAndSensorsPage() {
             <TableHead>Floor</TableHead>
             <TableHead>City</TableHead>
             <TableHead>User Name</TableHead>
-            <TableHead>Actions</TableHead>
+            <TableHead className="text-center w-[200px]">Actions</TableHead> {/* Set consistent width */}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {paginateRooms(rooms.filter((room) =>
-            room.room_name.toLowerCase().includes(searchTerm.toLowerCase())
-          )).map((room) => (
-            <TableRow key={room.room_id}>
-              <TableCell>{room.room_name}</TableCell>
-              <TableCell>{room.room_number}</TableCell>
-              <TableCell>{room.crop_type}</TableCell>
-              <TableCell>{room.floor}</TableCell>
-              <TableCell>{room.city}</TableCell>
-              <TableCell>{room.user_name}</TableCell>
-              <TableCell>
-                <div className="flex space-x-2">
-                  <Link href={`/rooms/${room.room_id}`} passHref>
-                    <Button variant="ghost">View Shelves</Button>
-                  </Link>
-                  <Button
-                    variant="ghost"
-                    className="text-red-500 hover:text-red-700 hover:bg-red-100"
-                    onClick={() => {
-                      setItemToRemove({ type: 'room', id: room.room_id });
-                      setIsRemoveDialogOpen(true);
-                    }}
-                  >
-                    Remove
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
+
+  {roomsToDisplay.map((room) => (
+    <TableRow key={room.room_id}>
+      <TableCell>{room.room_name}</TableCell>
+      <TableCell>{room.room_number}</TableCell>
+      <TableCell>{room.crop_type}</TableCell>
+      <TableCell>{room.floor}</TableCell>
+      <TableCell>{room.city}</TableCell>
+      <TableCell>{room.user_name}</TableCell>
+      <TableCell>
+        <div className="flex space-x-2">
+          <Link href={`/rooms/${room.room_id}`} passHref>
+            <Button variant="ghost">View Shelves</Button>
+          </Link>
+          <Button
+            variant="ghost"
+            className="text-red-500 hover:text-red-700 hover:bg-red-100"
+            onClick={() => {
+              setItemToRemove({ type: 'room', id: room.room_id });
+              setIsRemoveDialogOpen(true);
+            }}
+          >
+            Remove
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  ))}
+</TableBody>
       </Table>
 
       {/* Render Pagination Controls */}
@@ -690,22 +851,24 @@ export default function DevicesAndSensorsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Soil Management by Room/Shelf</CardTitle>
-                <CardDescription>Monitor and manage soil health for specific rooms and shelves</CardDescription>
+                <CardDescription>Monitor and manage soil health</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-2 mb-4">
                   <div>
                     <Label htmlFor="soilRoomSelect">Select Room</Label>
                     <Select value={selectedRoom} onValueChange={setSelectedRoom}>
-                      <SelectTrigger id="soilRoomSelect">
-                        <SelectValue placeholder="Select a room" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {rooms.map((room) => (
-                          <SelectItem key={room.id} value={room.id}>{room.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+  <SelectTrigger className="col-span-3">
+    <SelectValue placeholder="Select room" />
+  </SelectTrigger>
+  <SelectContent>
+    {roomsAndSensors.map((room) => (
+      <SelectItem key={room.id} value={room.id}>
+        {room.name}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
                   </div>
                   <div>
                     <Label htmlFor="soilShelfSelect">Select Shelf</Label>
@@ -714,16 +877,12 @@ export default function DevicesAndSensorsPage() {
                         <SelectValue placeholder="Select a shelf" />
                       </SelectTrigger>
                       <SelectContent>
-                        {selectedRoom && rooms.find(r => r.id === selectedRoom)?.shelves && 
-                          Array.from({length: rooms.find(r => r.id === selectedRoom)!.shelves}, (_, i) => i).map((shelf) => {
-                            const letter = String.fromCharCode(65 + Math.floor(shelf / 10));
-                            const number = (shelf % 10) + 1;
-                            return (
-                              <SelectItem key={`${letter}${number}`} value={`${letter}${number}`}>Shelf {letter}{number}</SelectItem>
-                            );
-                          })
-                        }
-                      </SelectContent>
+    {getShelvesForRoom().map((shelfId) => (
+      <SelectItem key={shelfId} value={shelfId.toString()}>
+        {shelfId} {/* This will display the shelfId, but you can map it to a name if necessary */}
+      </SelectItem>
+    ))}
+  </SelectContent>
                     </Select>
                   </div>
                 </div>
@@ -797,40 +956,38 @@ export default function DevicesAndSensorsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Environmental Controls by Room/Shelf</CardTitle>
-                <CardDescription>Manage IoT sensors and actuators for optimal growing conditions in specific rooms and shelves</CardDescription>
+                <CardDescription>Manage actuators for optimal growing conditions</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-4 md:grid-cols-2 mb-4">
+              <div className="grid gap-4 md:grid-cols-2 mb-4">
                   <div>
                     <Label htmlFor="envRoomSelect">Select Room</Label>
-                    <Select value={selectedEnvRoom} onValueChange={setSelectedEnvRoom}>
-                      <SelectTrigger id="envRoomSelect">
-                        <SelectValue placeholder="Select a room" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {rooms.map((room) => (
-                          <SelectItem key={room.id} value={room.id}>{room.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Select value={selectedRoom} onValueChange={setSelectedRoom}>
+  <SelectTrigger className="col-span-3">
+    <SelectValue placeholder="Select room" />
+  </SelectTrigger>
+  <SelectContent>
+    {roomsAndSensors.map((room) => (
+      <SelectItem key={room.id} value={room.id}>
+        {room.name}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
                   </div>
                   <div>
                     <Label htmlFor="envShelfSelect">Select Shelf</Label>
-                    <Select value={selectedEnvShelf} onValueChange={setSelectedEnvShelf}>
+                    <Select value={selectedShelf} onValueChange={setSelectedShelf}>
                       <SelectTrigger id="envShelfSelect">
                         <SelectValue placeholder="Select a shelf" />
                       </SelectTrigger>
                       <SelectContent>
-                        {selectedEnvRoom && rooms.find(r => r.id === selectedEnvRoom)?.shelves && 
-                          Array.from({length: rooms.find(r => r.id === selectedEnvRoom)!.shelves}, (_, i) => i).map((shelf) => {
-                            const letter = String.fromCharCode(65 + Math.floor(shelf / 10));
-                            const number = (shelf % 10) + 1;
-                            return (
-                              <SelectItem key={`${letter}${number}`} value={`${letter}${number}`}>Shelf {letter}{number}</SelectItem>
-                            );
-                          })
-                        }
-                      </SelectContent>
+    {getShelvesForRoom().map((shelfId) => (
+      <SelectItem key={shelfId} value={shelfId.toString()}>
+        {shelfId} {/* This will display the shelfId, but you can map it to a name if necessary */}
+      </SelectItem>
+    ))}
+  </SelectContent>
                     </Select>
                   </div>
                 </div>
@@ -984,6 +1141,15 @@ export default function DevicesAndSensorsPage() {
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
+                  {/*"Set Controls" button */}
+  <div className="mt-6 flex justify-center">
+    <Button
+      className="mt-2"
+      onClick={() => handleSetControls(selectedRoom, selectedShelf)}
+    >
+      Set Controls
+    </Button>
+  </div>
               </CardContent>
             </Card>
           </TabsContent>

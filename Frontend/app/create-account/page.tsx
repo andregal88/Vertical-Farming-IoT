@@ -11,26 +11,59 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { EyeIcon, EyeOffIcon } from 'lucide-react'
 
 export default function CreateAccountPage() {
+  const [name, setName] = useState('')
+  const [surname, setSurname] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [userType, setUserType] = useState('user')
+  const [userType, setUserType] = useState('user') // 'user' or 'admin'
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
     if (password !== confirmPassword) {
       alert('Passwords do not match')
       return
     }
-    // Simulate saving the new account
-    const newAccount = { email, userType }
-    localStorage.setItem('newAccount', JSON.stringify(newAccount))
-    console.log('Creating account:', newAccount)
-    alert('Account created successfully!')
-    router.push('/sign-in')
+
+    try {
+      // Prepare payload for the API
+      const payload = {
+        name,
+        surname,
+        email,
+        password,
+        role_id: userType === 'admin' ? 1 : 2, 
+      }
+
+      // Send POST request to the API
+      const response = await fetch('http://localhost:5200/create_account', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        alert(`Error: ${errorData.error || 'Failed to create account'}`)
+        return
+      }
+
+      const data = await response.json()
+      alert('Account created successfully!')
+      console.log('API Response:', data)
+
+      // Redirect to the sign-in page
+      router.push('/sign-in')
+    } catch (error) {
+      console.error('Error creating account:', error)
+      alert('An unexpected error occurred. Please try again later.')
+    }
   }
 
   return (
@@ -42,6 +75,30 @@ export default function CreateAccountPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-green-700">First Name</Label>
+              <Input
+                id="name"
+                type="text"
+                placeholder="Enter your first name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                className="w-full border-green-300 focus:border-green-500 focus:ring-green-500"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="surname" className="text-green-700">Last Name</Label>
+              <Input
+                id="surname"
+                type="text"
+                placeholder="Enter your last name"
+                value={surname}
+                onChange={(e) => setSurname(e.target.value)}
+                required
+                className="w-full border-green-300 focus:border-green-500 focus:ring-green-500"
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email" className="text-green-700">Email</Label>
               <Input
@@ -132,4 +189,3 @@ export default function CreateAccountPage() {
     </div>
   )
 }
-

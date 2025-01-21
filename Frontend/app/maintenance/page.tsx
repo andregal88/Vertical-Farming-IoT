@@ -24,18 +24,33 @@ export default function MaintenancePage() {
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10  // Define how many sensors per page
 
-  // Fetch data from API when the component mounts
   useEffect(() => {
-    axios.get('http://127.0.0.1:5001/sensors')
-      .then(response => {
-        setSensors(response.data)  // Set sensors state with API data
-      })
-      .catch(error => {
-        console.error("Error fetching sensors:", error)
-      })
-  }, [])
+    const fetchData = () => {
+      axios.get('http://127.0.0.1:5001/sensors')
+        .then(response => {
+          setSensors(response.data); // Update the state with the latest data
+        })
+        .catch(error => {
+          console.error("Error fetching sensors:", error);
+        });
+    };
+  
+    // Fetch data initially
+    fetchData();
+  
+    // Set up polling interval
+    const interval = setInterval(fetchData, 10000); // Fetch data every 10 seconds
+  
+    // Cleanup interval on component unmount
+    return () => clearInterval(interval);
+  }, []);
 
-  const filteredSensors = sensors.filter(sensor => 
+  const filteredSensors = sensors
+  .slice() // Create a shallow copy to avoid mutating the original array
+  .sort((a, b) => 
+    new Date(b.lastMaintenance).getTime() - new Date(a.lastMaintenance).getTime()
+  ) // Sort by lastMaintenance in descending order
+  .filter(sensor => 
     sensor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     sensor.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
     sensor.location.toLowerCase().includes(searchTerm.toLowerCase())

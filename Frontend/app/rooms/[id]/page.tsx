@@ -44,6 +44,17 @@ export default function RoomPage() {
     return value !== undefined && value !== null ? value.toFixed(2) : 'N/A'
   }
 
+  // Define units for each sensor type
+  const units: { [key: string]: string } = {
+    CO2: "ppm",       // Parts per million
+    Humidity: "%",    // Percentage
+    Light_PAR: "μmol/m²/s", // Micromoles per square meter per second
+    Nutrients_EC: "mS/cm",  // Millisiemens per centimeter (Electrical conductivity)
+    Temperature: "°C",    // Celsius
+    Water_Level: "cm",     // Centimeters
+    pH: ""              // No unit for pH, just display the value
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -52,37 +63,38 @@ export default function RoomPage() {
         <Card>
           <CardHeader>
             <CardTitle>Shelf Conditions</CardTitle>
-            <CardDescription>Latest sensor values for each shelf</CardDescription>
+            <CardDescription>Historical sensor values for each shelf</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Shelf ID</TableHead>
-                  <TableHead>CO2 (ppm)</TableHead>
-                  <TableHead>Humidity (%)</TableHead>
-                  <TableHead>Light PAR (μmol/m²/s)</TableHead>
-                  <TableHead>Nutrients EC (mS/cm)</TableHead>
-                  <TableHead>Temperature (°C)</TableHead>
-                  <TableHead>Water Level (cm)</TableHead>
-                  <TableHead>pH</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {shelves.map((shelf) => (
-                  <TableRow key={shelf.shelf_id}>
-                    <TableCell>{shelf.shelf_id}</TableCell>
-                    <TableCell className="font-bold">{formatValue(shelf.sensors.CO2)}</TableCell>
-                    <TableCell className="font-bold">{formatValue(shelf.sensors.Humidity)}</TableCell>
-                    <TableCell className="font-bold">{formatValue(shelf.sensors.Light_PAR)}</TableCell>
-                    <TableCell className="font-bold">{formatValue(shelf.sensors.Nutrients_EC)}</TableCell>
-                    <TableCell className="font-bold">{formatValue(shelf.sensors.Temperature)}</TableCell>
-                    <TableCell className="font-bold">{formatValue(shelf.sensors.Water_Level)}</TableCell>
-                    <TableCell className="font-bold">{formatValue(shelf.sensors.pH)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            {shelves.map((shelf) => {
+              const sensorTypes = Object.keys(shelf.sensors)
+
+              return (
+                <div key={shelf.shelf_id} className="mb-6">
+                  <h3 className="text-xl font-semibold mb-4">Shelf ID: {shelf.shelf_id}</h3>
+                  {sensorTypes.map((sensorType) => {
+                    return (
+                      <div key={sensorType} className="mb-4">
+                        <h4 className="text-lg font-medium mb-2">{sensorType}</h4>
+                        <div className="max-h-60 overflow-y-auto border border-gray-300 p-2 rounded-md">
+                          <div className="space-y-2">
+                            {shelf.sensors[sensorType].map((sensorData: { timestamp: string, value: number }) => (
+                              <div key={sensorData.timestamp} className="flex justify-between text-sm text-gray-700">
+                                <span>{new Date(sensorData.timestamp).toLocaleString()}</span>
+                                <span className="font-bold">
+                                  {formatValue(sensorData.value)} 
+                                  {units[sensorType] && ` (${units[sensorType]})`} {/* Display the unit */}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })}
           </CardContent>
         </Card>
       </main>
