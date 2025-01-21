@@ -9,8 +9,8 @@ CORS(app)
 db_config = {
     'host': 'localhost',       # Replace with your database host
     'user': 'root',            # Replace with your database user
-    'password': '1234',    # Replace with your database password
-    'database': 'iot_db' # Replace with your database name
+    'password': '1234',  
+    'database': 'iot_db'
 }
 
 # Helper function to create a database connection
@@ -43,20 +43,17 @@ def get_room_shelves(room_id):
 
         shelf_ids = [shelf['shelf_id'] for shelf in shelves]
 
-        # Step 2: Fetch the latest sensor data for sensors attached to these shelves
+        # Step 2: Fetch all sensor data for these shelves, ordered by timestamp (newest first)
         query = """
             SELECT
                 s.shelve_id AS shelf_id,
                 s.sensorType,
-                dh.value AS latest_value
+                dh.value AS value,
+                dh.timestamp AS timestamp
             FROM Sensors s
-            LEFT JOIN (
-                SELECT sensor_id, MAX(timestamp) AS latest_timestamp
-                FROM dataHistory
-                GROUP BY sensor_id
-            ) latest ON s.id = latest.sensor_id
-            LEFT JOIN dataHistory dh ON s.id = dh.sensor_id AND dh.timestamp = latest.latest_timestamp
+            LEFT JOIN dataHistory dh ON s.id = dh.sensor_id
             WHERE s.shelve_id IN (%s)
+            ORDER BY s.shelve_id, s.sensorType, dh.timestamp DESC
         """ % (', '.join(['%s'] * len(shelf_ids)))
 
         cursor.execute(query, shelf_ids)
@@ -66,8 +63,20 @@ def get_room_shelves(room_id):
         shelves_with_sensors = {shelf['shelf_id']: {'shelf_id': shelf['shelf_id'], 'sensors': {}} for shelf in shelves}
 
         for sensor in sensor_data:
-            if sensor['shelf_id'] in shelves_with_sensors:
-                shelves_with_sensors[sensor['shelf_id']]['sensors'][sensor['sensorType']] = sensor['latest_value']
+            shelf_id = sensor['shelf_id']
+            sensor_type = sensor['sensorType']
+
+            if shelf_id not in shelves_with_sensors:
+                continue
+
+            if sensor_type not in shelves_with_sensors[shelf_id]['sensors']:
+                shelves_with_sensors[shelf_id]['sensors'][sensor_type] = []
+
+            # Append the sensor data to the list for that sensor type
+            shelves_with_sensors[shelf_id]['sensors'][sensor_type].append({
+                'value': sensor['value'],
+                'timestamp': sensor['timestamp']
+            })
 
         # Close the cursor and connection
         cursor.close()
@@ -81,6 +90,7 @@ def get_room_shelves(room_id):
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5100)

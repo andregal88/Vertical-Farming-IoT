@@ -9,8 +9,8 @@ def get_db_connection():
     return mysql.connector.connect(
         host="localhost",  # Replace with your database host
         user="root",  # Replace with your database username
-        password="QifsaRopt1!",  # Replace with your database password
-        database="test_db"  # Replace with your database name
+        password = '1234',  
+        database = 'iot_db'
     )
 
 @app.route('/room-data', methods=['GET'])

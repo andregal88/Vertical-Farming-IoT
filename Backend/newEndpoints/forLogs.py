@@ -9,8 +9,8 @@ CORS(app)
 db_config = {
     'host': 'localhost',       # Replace with your database host
     'user': 'root',            # Replace with your database user
-    'password': '1234',    # Replace with your database password
-    'database': 'iot_db' # Replace with your database name
+    'password': '1234',  
+    'database': 'iot_db'
 }
 
 # Route to get sensorMaintenance logs

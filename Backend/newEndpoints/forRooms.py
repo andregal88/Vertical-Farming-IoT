@@ -9,7 +9,7 @@ CORS(app)
 db_config = {
     'host': 'localhost',
     'user': 'root',
-    'password': '1234',
+    'password': '1234',  
     'database': 'iot_db'
 }
 
