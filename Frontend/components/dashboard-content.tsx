@@ -96,87 +96,150 @@ function SortableItem(props: {
 
 export function DashboardContent() {
   const [roomsAndSensors, setRoomsAndSensors] = useState([]); // Rooms with sensors data
+  const [roomsAndSensors2, setRoomsAndSensors2] = useState([]); // Rooms with sensors data
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null); // Selected room
+  const [selectedRoom2, setSelectedRoom2] = useState<string | null>(null); // Selected room
   const [selectedShelf, setSelectedShelf] = useState<string | null>(null); // Selected shelf
+  const [selectedShelf2, setSelectedShelf2] = useState<string | null>(null); // Selected shelf
   const [dashboardItems, setDashboardItems] = useState<DashboardItem[]>([]); // Dashboard items
 
   // State for storing graph data
   const [graphs, setGraphData] = useState<Graph[]>([]);
+  const [cropTypes, setCropTypes] = useState<{ id: number, name: string }[]>([]); // State to store crop types
+  const [selectedCropType, setSelectedCropType] = useState<string>(''); // Selected crop type
 
-  // Fetching room and sensor data (existing API)
+  // Fetching room and sensor data
   useEffect(() => {
-    const fetchRoomsAndSensors = async () => {
-      try {
-        const roomsResponse = await fetch('http://127.0.0.1:5017/get_rooms_with_shelves_and_sensors');
-        const roomsData = await roomsResponse.json();
+    const interval = setInterval(() => {
+      fetch('http://127.0.0.1:5017/get_rooms_with_shelves_and_sensors')
+        .then(response => response.json())
+        .then(data => {
+          const updatedRooms = data.rooms.map((room: any) => ({
+            id: `room${room.room_id}`,
+            name: room.room_name,
+            sensors: room.shelves.flatMap((shelf: any) =>
+              shelf.sensors.map((sensor: any) => ({
+                id: `sensor${sensor.sensor_id}`,
+                name: sensor.name,
+                type: sensor.sensor_type,
+                value: sensor.last_value,
+                room: room.room_name,
+                shelfId: `shelf${shelf.shelf_id}`,
+              }))
+            ),
+          }));
+  
+          setRoomsAndSensors(updatedRooms);
+          setRoomsAndSensors2(updatedRooms);
+  
+          // Update the dashboard items with new sensor values
+          setDashboardItems(prevItems => prevItems.map(item => {
+            if (item.type === 'sensor') {
+              const updatedSensor = updatedRooms
+                .flatMap(room => room.sensors)
+                .find(sensor => sensor.id === item.content.id);
+  
+              if (updatedSensor) {
+                return {
+                  ...item,
+                  content: {
+                    ...item.content,
+                    value: updatedSensor.value, // Update the sensor value
+                  }
+                };
+              }
+            }
+            return item;
+          }));
+        })
+        .catch(error => console.error('Error updating sensor data:', error));
+    }, 10000); // Auto-update every 10 seconds
+  
+    return () => clearInterval(interval); // Clean up the interval on component unmount
+  }, []); 
+  
 
-        // Map rooms and attach the corresponding sensors
-        const combinedRooms = roomsData.rooms.map((room: any) => ({
-          id: `room${room.room_id}`,
-          name: room.room_name,
-          sensors: room.shelves.flatMap((shelf: any) =>
-            shelf.sensors.map((sensor: any) => ({
-              id: `sensor${sensor.sensor_id}`,
-              name: sensor.name,
-              type: sensor.sensor_type,
-              value: sensor.last_value,
-              room: room.room_name,
-              shelfId: `shelf${shelf.shelf_id}`,
-            }))
-          ),
-          shelves: room.shelves.map((shelf: any) => ({
-            id: `shelf${shelf.shelf_id}`,
-            name: shelf.shelf_name,
-            sensors: shelf.sensors.map((sensor: any) => ({
-              id: `sensor${sensor.sensor_id}`,
-              name: sensor.name,
-            }))
-          }))
-        }));
 
-        setRoomsAndSensors(combinedRooms);
-      } catch (error) {
-        console.error('Error fetching rooms and sensors data:', error);
-      }
-    };
+  // Get shelves for the selected room for first shelf dropdown
+const getShelvesForRoom1 = () => {
+  if (!selectedRoom) return [];
+  const selectedRoomData = roomsAndSensors.find(room => room.id === selectedRoom);
+  if (!selectedRoomData) return [];
 
-    fetchRoomsAndSensors();
-  }, []);
+  // Extract unique shelf IDs from the sensors in the selected room
+  const uniqueShelves = Array.from(new Set(selectedRoomData.sensors.map((sensor: any) => sensor.shelfId)))
+    .filter((id) => id !== undefined); // Remove undefined values
+
+  return uniqueShelves;
+};
+
+// Get shelves for the selected room for second shelf dropdown
+const getShelvesForRoom2 = () => {
+  if (!selectedRoom2) return [];
+  const selectedRoomData2 = roomsAndSensors2.find(room => room.id === selectedRoom2);
+  if (!selectedRoomData2) return [];
+
+  // Extract unique shelf IDs from the sensors in the selected room
+  const uniqueShelves = Array.from(new Set(selectedRoomData2.sensors.map((sensor: any) => sensor.shelfId)))
+    .filter((id) => id !== undefined); // Remove undefined values
+
+  return uniqueShelves;
+};
+
 
   // Fetching graph data from another API
-  useEffect(() => {
-    const fetchGraphData = async () => {
-      try {
-        const response = await fetch('http://127.0.0.1:5101/room-data');
-        const data = await response.json();
-
-        const newGraphData = data.map((room: any) => {
-          return room.shelves.flatMap((shelf: any) =>
-            shelf.sensors.flatMap((sensor: any) => {
-              const graph = {
-                id: `graph_${sensor.sensor_id}`,
-                name: sensor.sensor_name,
-                room: room.room_name,
-                shelfId: `shelf${shelf.shelf_id}`, // Added shelfId to the graph
-                data: sensor.data.map((entry: any) => ({
-                  name: entry.timestamp,  // timestamp for X axis
-                  value: entry.value,     // sensor value for Y axis
-                }))
-              };
-              return graph;
-            })
+// This will fetch the latest graph data every 10 seconds
+useEffect(() => {
+  const interval = setInterval(() => {
+    fetch('http://127.0.0.1:5101/room-data')
+      .then(response => response.json())
+      .then(data => {
+        const newGraphData = data.map(room => {
+          return room.shelves.flatMap(shelf => 
+            shelf.sensors.map(sensor => ({
+              id: `graph_${sensor.sensor_id}`,
+              name: sensor.sensor_name,
+              room: room.room_name,
+              shelfId: `shelf${shelf.shelf_id}`,
+              data: sensor.data
+                .map(entry => ({ name: entry.timestamp, value: entry.value }))
+                .reverse()  // Reverse the data to show the oldest on the left
+            }))
           );
         });
 
-        // Flatten the array and set it to state
-        setGraphData(newGraphData.flat());
-      } catch (error) {
-        console.error('Error fetching graph data:', error);
-      }
-    };
+        const updatedGraphData = newGraphData.flat(); // Flatten the array
 
-    fetchGraphData();
-  }, []);
+        // Update graph data
+        setGraphData(updatedGraphData); 
+
+        // Automatically update dashboard items that depend on the graph data
+        setDashboardItems(prevItems => {
+          return prevItems.map(item => {
+            if (item.type === 'graph') {
+              // Find the corresponding graph data to update
+              const updatedGraph = updatedGraphData.find(graph => graph.id === item.content.id);
+              
+              if (updatedGraph) {
+                // Update the graph data in the dashboard item
+                return {
+                  ...item,
+                  content: {
+                    ...item.content,
+                    data: updatedGraph.data, // Update with the new data
+                  },
+                };
+              }
+            }
+            return item;
+          });
+        });
+      })
+      .catch(error => console.error('Error updating graph data:', error));
+  }, 10000); // 10 seconds interval to fetch graph data
+
+  return () => clearInterval(interval); // Clean up interval on component unmount
+}, []); // Empty dependency array to run only once on mount
 
   // Debugging logs
   console.log('Graphs:', graphs);          // Log the graphs data
@@ -187,57 +250,29 @@ export function DashboardContent() {
     return graph.shelfId === selectedShelf; // Ensure both are strings, or both are numbers
   });
   console.log("Filtered Graphs:", filteredGraphs);
+
+
+
+  // Fetch crop types from the API
+  useEffect(() => {
+    const fetchCropTypes = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:5009/api/crop_types');
+        const data = await response.json();
+        setCropTypes(data); // Set the fetched crop types in state
+      } catch (error) {
+        console.error('Error fetching crop types:', error);
+      }
+    };
+
+    fetchCropTypes(); 
+  }, []);
   
-  
-  const [controls, setControls] = useState<Control[]>([
-    { id: 'control1', name: 'Water Level', type: 'slider', value: 6, max: 10, room: 'room1', shelf: 'A1' },
-    { id: 'control2', name: 'CO2 Level', type: 'slider', value: 425, max: 1000, room: 'room1', shelf: 'B2' },
-    { id: 'control3', name: 'Light Intensity', type: 'slider', value: 75, max: 100, room: 'room2', shelf: 'C3' },
-    { id: 'control4', name: 'Drip Irrigation', type: 'switch', value: 1, room: 'room2', shelf: 'D4' },
-    { id: 'control5', name: 'Sprinkler System', type: 'switch', value: 0, room: 'room1', shelf: 'E5' },
-  ]);
 
-  // const [graphs, setGraphs] = useState<Graph[]>([
-  //   {
-  //     id: 'graph1',
-  //     name: 'Temperature Over Time',
-  //     room: 'room1',
-  //     data: [
-  //       { name: '00:00', value: 20 },
-  //       { name: '04:00', value: 18 },
-  //       { name: '08:00', value: 22 },
-  //       { name: '12:00', value: 25 },
-  //       { name: '16:00', value: 23 },
-  //       { name: '20:00', value: 21 },
-  //     ]
-  //   },
-  //   {
-  //     id: 'graph2',
-  //     name: 'Humidity Over Time',
-  //     room: 'room2',
-  //     data: [
-  //       { name: '00:00', value: 60 },
-  //       { name: '04:00', value: 58 },
-  //       { name: '08:00', value: 62 },
-  //       { name: '12:00', value: 65 },
-  //       { name: '16:00', value: 63 },
-  //       { name: '20:00', value: 61 },
-  //     ]
-  //   },
-  // ]);
 
-  // const [dashboardItems, setDashboardItems] = useState<DashboardItem[]>([
-  //   { id: 'item1', type: 'sensor', content: rooms[0].sensors[0] },
-  //   { id: 'item2', type: 'sensor', content: rooms[0].sensors[1] },
-  //   { id: 'item3', type: 'control', content: controls[0] },
-  //   { id: 'item4', type: 'graph', content: graphs[0] },
-  // ]);
-
-  // const [selectedRoom, setSelectedRoom] = useState<string>('');
   const [selectedItem, setSelectedItem] = useState<string>('');
-  const [selectedItemType, setSelectedItemType] = useState<'sensor' | 'control' | 'graph'>('sensor');
+  const [selectedItemType, setSelectedItemType] = useState<'sensor' |  'graph'>('sensor');
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
-  // const [selectedShelf, setSelectedShelf] = useState<string>('');
 
   const [waterLevel, setWaterLevel] = useState(6);
   const [dewPoint, setDewPoint] = useState(60);
@@ -259,7 +294,6 @@ export function DashboardContent() {
   const [ecLevel, setECLevel] = useState(1.5);
   const [energyConsumption, setEnergyConsumption] = useState(120);
   const [cropHealthIndex, setCropHealthIndex] = useState(85);
-  const [selectedCropType, setSelectedCropType] = useState<string>('lettuce');
 
   const energyData = [
     { time: '00:00', value: 50 },
@@ -297,26 +331,34 @@ if (selectedItemType === 'sensor') {
       }
     };
   }
-    } else if (selectedItemType === 'control') {
-      const controlToAdd = controls.find(control => control.id === selectedItem);
-      if (controlToAdd) {
-        newItem = { 
-          id: `item${dashboardItems.length + 1}`, 
-          type: 'control', 
-          content: {...controlToAdd, room: selectedRoom, shelf: selectedShelf} 
-        };
-      }
-    } else if (selectedItemType === 'graph' ) {
+    } 
+    // else if (selectedItemType === 'control') {
+    //   const controlToAdd = controls.find(control => control.id === selectedItem);
+    //   if (controlToAdd) {
+    //     newItem = { 
+    //       id: `item${dashboardItems.length + 1}`, 
+    //       type: 'control', 
+    //       content: {...controlToAdd, room: selectedRoom, shelf: selectedShelf} 
+    //     };
+    //   }
+    // } 
+    else if (selectedItemType === 'graph') {
       const graphToAdd = graphs.find(graph => graph.id === selectedItem);
       if (graphToAdd) {
         newItem = { 
           id: `item${dashboardItems.length + 1}`, 
           type: 'graph', 
-          content: {...graphToAdd, room: selectedRoom, shelf: selectedShelf} 
+          content: {
+            ...graphToAdd, 
+            room: selectedRoom, 
+            shelf: selectedShelf, 
+            // Include any real-time data binding here to ensure graph stays up to date
+            data: graphToAdd.data, // Make sure the data is dynamic and gets updated as new data comes in
+          } 
         };
       }
-   }
-   
+    }
+    
 
     if (newItem && !dashboardItems.some(item => item.content.id === newItem!.content.id)) {
       setDashboardItems([...dashboardItems, newItem]);
@@ -394,17 +436,18 @@ if (selectedItemType === 'sensor') {
         roomName: room?.name || 'Unknown Room', // Return the room name if found, otherwise 'Unknown Room'
         shelf: sensor.shelf || 'N/A' // Return the shelf if available, otherwise 'N/A'
       };
-    } else if (item.type === 'control') {
-      const control = item.content as Control;
+    } 
+    // else if (item.type === 'control') {
+    //   const control = item.content as Control;
       
-      // Find the room for the control item from roomsAndSensors
-      const room = roomsAndSensors.find(r => r.id === control.room);
+    //   // Find the room for the control item from roomsAndSensors
+    //   const room = roomsAndSensors.find(r => r.id === control.room);
       
-      return {
-        roomName: room?.name || 'Unknown Room', // Return the room name if found, otherwise 'Unknown Room'
-        shelf: control.shelf || 'N/A' // Return the shelf if available, otherwise 'N/A'
-      };
-    }
+    //   return {
+    //     roomName: room?.name || 'Unknown Room', // Return the room name if found, otherwise 'Unknown Room'
+    //     shelf: control.shelf || 'N/A' // Return the shelf if available, otherwise 'N/A'
+    //   };
+    // }
     return null; // Return null if it's not a 'sensor' or 'control'
   };
   
@@ -432,18 +475,8 @@ if (selectedItemType === 'sensor') {
         break;
     }
   };
-  // Get shelves for the selected room
-  const getShelvesForRoom = () => {
-    if (!selectedRoom) return [];
-    const selectedRoomData = roomsAndSensors.find(room => room.id === selectedRoom);
-    if (!selectedRoomData) return [];
 
-    // Extract unique shelf IDs from the sensors in the selected room
-    const uniqueShelves = Array.from(new Set(selectedRoomData.sensors.map((sensor: any) => sensor.shelfId)))
-      .filter((id) => id !== undefined); // Remove undefined values
-
-    return uniqueShelves;
-  };
+  
   return (
     <main className="container mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
@@ -468,7 +501,6 @@ if (selectedItemType === 'sensor') {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="sensor">Sensor</SelectItem>
-                      <SelectItem value="control">Control</SelectItem>
                       <SelectItem value="graph">Graph</SelectItem>
                     </SelectContent>
                   </Select>
@@ -501,7 +533,7 @@ if (selectedItemType === 'sensor') {
     <SelectValue placeholder="Select shelf" />
   </SelectTrigger>
   <SelectContent>
-    {getShelvesForRoom().map((shelfId) => (
+    {getShelvesForRoom1().map((shelfId) => (
       <SelectItem key={shelfId} value={shelfId.toString()}>
         {shelfId} {/* This will display the shelfId, but you can map it to a name if necessary */}
       </SelectItem>
@@ -531,7 +563,7 @@ if (selectedItemType === 'sensor') {
               {sensor.name}
             </SelectItem>
           ))}
-        {selectedItemType === 'control' &&
+        {/* {selectedItemType === 'control' &&
         roomsAndSensors
         .find(room => room.id === selectedRoom)
         ?.sensors
@@ -541,22 +573,13 @@ if (selectedItemType === 'sensor') {
             {sensor.name}
           </SelectItem>
         ))
-        }
-  {selectedItemType === 'graph' ? (
-    filteredGraphs.length > 0 ? (
-      filteredGraphs.map(graph => (
-        <SelectItem key={graph.id} value={graph.id}>
-          {graph.name}
-        </SelectItem>
-      ))
-    ) : (
-      // Fallback message when no graphs are available
-      <p>No graphs available for the selected shelf.</p>
-    )
-  ) : (
-    // Handle case when the selectedItemType is not 'graph'
-    <p>Please select a valid graph item.</p>
-  )}
+        } */}
+  {selectedItemType === 'graph' &&
+    filteredGraphs.map(graph => (
+      <SelectItem key={graph.id} value={graph.id}>
+        {graph.name}
+      </SelectItem>
+    ))}
       </SelectContent>
     </Select>
 </div>
@@ -637,7 +660,7 @@ if (selectedItemType === 'sensor') {
                   }}
                 />
               )}
-              {item.type === 'control' && (item.content as Control).type === 'switch' && (
+              {/* {item.type === 'control' && (item.content as Control).type === 'switch' && (
                 <div className="flex items-center justify-between">
                   <span className="font-medium">{(item.content as Control).value ? 'ON' : 'OFF'}</span>
                   <Switch
@@ -650,7 +673,7 @@ if (selectedItemType === 'sensor') {
                     }}
                   />
                 </div>
-              )}
+              )} */}
               {item.type === 'graph' && (
                 <ResponsiveContainer width="100%" height={200}>
                   <LineChart data={(item.content as Graph).data}>
@@ -674,34 +697,59 @@ if (selectedItemType === 'sensor') {
         </SortableContext>
       </DndContext>
       <div className="mt-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-green-600 dark:text-green-400 dark:text-white">Global Controls and Widgets</CardTitle>
-            <CardDescription className="dark:text-gray-300">
-              Manage and monitor your vertical farming system based on crop type
-            </CardDescription>
-            <div className="mt-2">
-              <Label htmlFor="cropType">Select Crop Type</Label>
-              <Select
-                id="cropType"
-                value={selectedCropType}
-                onValueChange={(value) => {
-                  setSelectedCropType(value);
-                  updateControlsForCrop(value);
-                }}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Select crop type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="lettuce">Lettuce</SelectItem>
-                  <SelectItem value="tomatoes">Tomatoes</SelectItem>
-                  <SelectItem value="strawberries">Strawberries</SelectItem>
-                  <SelectItem value="herbs">Herbs</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardHeader>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-green-600 dark:text-green-400 dark:text-white">
+            Global Controls and Widgets
+          </CardTitle>
+          <CardDescription className="dark:text-gray-300">
+            Manage the vertical farming system's environment 
+          </CardDescription>
+          <div className="mt-2">
+            {/* Room Selection */}
+            <Label htmlFor="room">Select Room</Label>
+            <Select
+              id="room"
+              value={selectedRoom2}
+              onValueChange={setSelectedRoom2}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select room" />
+              </SelectTrigger>
+              <SelectContent>
+                {roomsAndSensors2.map((room) => (
+                  <SelectItem key={room.id} value={room.id}>
+                    {room.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Shelf Selection */}
+            {selectedRoom2 && (
+              <>
+                <Label htmlFor="shelf">Select Shelf</Label>
+                <Select
+                  id="shelf"
+                  value={selectedShelf2}
+                  onValueChange={setSelectedShelf2}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select shelf" />
+                  </SelectTrigger>
+                  <SelectContent>
+                  {getShelvesForRoom2().map((shelfId) => (
+                  <SelectItem key={shelfId} value={shelfId.toString()}>
+                    {shelfId} {/* This will display the shelfId, but you can map it to a name if necessary */}
+                  </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
+          </div>
+        </CardHeader>
+
           <CardContent className="grid gap-6">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               <Card className="dark:border-gray-700">
@@ -836,8 +884,18 @@ if (selectedItemType === 'sensor') {
                   </Button>
                 </CardContent>
               </Card>
+              <div className="mt-4 flex items-center justify-center col-span-3">
+          <Button
+            onClick={() => {
+              alert(`Environment for ${selectedRoom2 || 'N/A'}  ${selectedShelf2 || 'N/A'} is set`);
+            }}
+            className="bg-green-600 text-white hover:bg-green-700"
+          >
+            Set Conditions
+          </Button>
+        </div>
             </div>
-          </CardContent>
+          </CardContent>       
         </Card>
       </div>
     </main>
