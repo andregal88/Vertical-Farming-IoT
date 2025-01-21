@@ -17,7 +17,8 @@ import { Switch } from "@/components/ui/switch"
 import { Progress } from "@/components/ui/progress"
 import { Slider } from "@/components/ui/slider"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-
+import { useAuth } from "@/lib/auth"
+import { jwtDecode } from 'jwt-decode'
 
 
 export default function DevicesAndSensorsPage() {
@@ -28,6 +29,7 @@ export default function DevicesAndSensorsPage() {
   const [selectedShelfSoil, setSelectedShelfSoil] = useState<string | null>(null); // Selected shelf
   const [roomsAndSensors, setRoomsAndSensors] = useState([]); // Rooms with sensors data
   const [roomsAndSensors2, setRoomsAndSensors2] = useState([]); // Rooms with sensors data
+  const { user, loading } = useAuth();  // Access user details via the useAuth hook
 
     // Fetching room and sensor data
     useEffect(() => {
@@ -72,46 +74,84 @@ export default function DevicesAndSensorsPage() {
     
   // Fetch devices from the API
   useEffect(() => {
+        // Retrieve the user from localStorage (or from a global state/context)
+        const storedToken = localStorage.getItem('authToken');
+        if (!storedToken) {
+          // Handle token absence (redirect to login, show error, etc.)
+          console.log('No token found');
+          return;
+        }
+    
+        // Decode the token to get user_id and role
+        const decodedToken: any = jwtDecode(storedToken);
+        const userId = decodedToken.id;
+        const userRole = decodedToken.role;
+    
+    
     const fetchDevices = async () => {
       try {
-        const response = await axios.get('http://127.0.0.1:5001/sensors');
-        console.log("Fetched Devices:", response.data);  // Log the response data to the console
-        setDevices(response.data);  // Update the state with the fetched devices
+        const response = await axios.get(`http://127.0.0.1:5001/sensors?user_id=${userId}&role=${userRole}`, { 
+          headers: {
+            Authorization: `Bearer ${storedToken}`, // Include token in Authorization header
+          },
+        });
+
+        setDevices(response.data);  // Update sensors state with the fetched data
       } catch (error) {
-        console.error("Error fetching devices:", error);
+        console.error('Error fetching sensor maintenance logs:', error);
       }
     };
 
-    fetchDevices();
-    // Set up polling interval
-    const interval = setInterval(fetchDevices, 10000); // Fetch logs every 10 seconds
+      // Fetch data initially
+      fetchDevices();
 
-    // Cleanup interval on component unmount
-    return () => clearInterval(interval);
-  }, []);  
+      // Set up polling interval (10 seconds)
+      const interval = setInterval(fetchDevices, 10000);
 
+      // Cleanup interval on component unmount
+      return () => clearInterval(interval);
+    }, [loading]); 
+
+      
   // Fetch data from the API
-  useEffect(() => {
-    const fetchRooms = async () => {
-      try {
-        const response = await fetch('http://127.0.0.1:5006/get_rooms');
-        const data = await response.json();
-        setRooms(data.rooms); // Update state with the fetched rooms
-      } catch (error) {
-        console.error('Error fetching rooms:', error);
-      }
-    };
+   // Fetch data from the API
+   useEffect(() => {
+    // Retrieve the user from localStorage (or from a global state/context)
+    const storedToken = localStorage.getItem('authToken');
+    if (!storedToken) {
+      // Handle token absence (redirect to login, show error, etc.)
+      console.log('No token found');
+      return;
+    }
 
-    fetchRooms();
+    // Decode the token to get user_id and role
+    const decodedToken: any = jwtDecode(storedToken);
+    const userId = decodedToken.id;
+    const userRole = decodedToken.role;
+    
+  const fetchRooms = async () => {
+    try {
+      const response = await axios.get(`http://127.0.0.1:5006/get_rooms?user_id=${userId}&role=${userRole}`, { 
+        headers: {
+          Authorization: `Bearer ${storedToken}`, // Include token in Authorization header
+        },
+      });
+      setRooms(response.data.rooms); // Make sure the API response structure matches what you expect
+    } catch (error) {
+      console.error('Error fetching rooms:', error);
+    }
+  };
+
+  fetchRooms();
 
 
-    // Set up polling interval
-    const interval = setInterval(fetchRooms, 10000); // Fetch data every 10 seconds
-  
-    // Cleanup interval on component unmount
-    return () => clearInterval(interval);
+  // Set up polling interval
+  const interval = setInterval(fetchRooms, 10000); // Fetch data every 10 seconds
 
-  }, []); // Empty dependency array ensures the fetch happens once when the component mounts
+  // Cleanup interval on component unmount
+  return () => clearInterval(interval);
+
+}, [user]); 
 
   // Get shelves for the selected room for first shelf dropdown
   const getShelvesForRoom = () => {

@@ -8,42 +8,65 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import axios from 'axios'
+import {jwtDecode} from 'jwt-decode'
+import { useAuth } from "@/lib/auth"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"; // Import the Select components
 
 export default function MaintenancePage() {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedSensor, setSelectedSensor] = useState<string | null>(null)
-  const [maintenanceDate, setMaintenanceDate] = useState('')
-  const [maintenanceNotes, setMaintenanceNotes] = useState('')
-  const [sensors, setSensors] = useState([])  // Start with an empty array
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const { user, loading } = useAuth();  // Access user details via the useAuth hook
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSensor, setSelectedSensor] = useState<string | null>(null);
+  const [maintenanceDate, setMaintenanceDate] = useState('');
+  const [maintenanceNotes, setMaintenanceNotes] = useState('');
+  const [sensors, setSensors] = useState([]);  // Start with an empty array
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Pagination states
-  const [currentPage, setCurrentPage] = useState(1)
-  const pageSize = 10  // Define how many sensors per page
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;  // Define how many sensors per page
 
   useEffect(() => {
-    const fetchData = () => {
-      axios.get('http://127.0.0.1:5001/sensors')
-        .then(response => {
-          setSensors(response.data); // Update the state with the latest data
-        })
-        .catch(error => {
-          console.error("Error fetching sensors:", error);
+    // Retrieve the user from localStorage (or from a global state/context)
+    const storedToken = localStorage.getItem('authToken');
+    if (!storedToken) {
+      // Handle token absence (redirect to login, show error, etc.)
+      console.log('No token found');
+      return;
+    }
+
+    // Decode the token to get user_id and role
+    const decodedToken: any = jwtDecode(storedToken);
+    const userId = decodedToken.id;
+    const userRole = decodedToken.role;
+
+
+    // Fetch sensor data
+    const fetchData = async () => {
+      try {
+        const response = await axios.get(`http://127.0.0.1:5001/sensors?user_id=${userId}&role=${userRole}`, { 
+          headers: {
+            Authorization: `Bearer ${storedToken}`, // Include token in Authorization header
+          },
         });
+
+        setSensors(response.data);  // Update sensors state with the fetched data
+      } catch (error) {
+        console.error('Error fetching sensor maintenance logs:', error);
+      }
     };
-  
+
     // Fetch data initially
     fetchData();
-  
-    // Set up polling interval
-    const interval = setInterval(fetchData, 10000); // Fetch data every 10 seconds
-  
+
+    // Set up polling interval (10 seconds)
+    const interval = setInterval(fetchData, 10000);
+
     // Cleanup interval on component unmount
     return () => clearInterval(interval);
-  }, []);
+  }, [loading]); 
+
 
   const filteredSensors = sensors
   .slice() // Create a shallow copy to avoid mutating the original array
@@ -55,7 +78,6 @@ export default function MaintenancePage() {
     sensor.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
     sensor.location.toLowerCase().includes(searchTerm.toLowerCase())
   )
-
   // Calculate total pages
   const totalPages = Math.ceil(filteredSensors.length / pageSize)
 

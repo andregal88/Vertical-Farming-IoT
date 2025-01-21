@@ -31,7 +31,7 @@ export default function SignInPage() {
         router.push('/dashboard'); // Admins go to dashboard
       } else if (user?.rooms && user?.rooms.length > 0) {
         // Check if rooms are assigned and redirect to the first room
-        router.push(`/rooms/${user.rooms[0].room_id}`);
+        router.push(`/dashboard`);
       } 
     } else {
       alert('Invalid credentials. Please try again.');

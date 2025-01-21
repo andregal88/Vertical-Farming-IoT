@@ -93,7 +93,7 @@ const generateChartData = (sensorData: { timestamp: string, value: number }[]) =
   // Reverse the data to ensure the oldest data is on the left (X-axis) and the newest is on the right
   return sensorData
     .map((data) => ({
-      time: new Date(data.timestamp).toLocaleString(),
+      time: formatTimestamp(data.timestamp).toLocaleString(),
       value: data.value
     }))
     .reverse(); // Reverse the order of the data

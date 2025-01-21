@@ -9,19 +9,33 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-// import saveAs from 'file-saver';
+import { jwtDecode } from 'jwt-decode'
+import { useAuth } from "@/lib/auth"
 
 export default function LogsPage() {
-  const [logs, setLogs] = useState([]) // State to hold logs fetched from the backend
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filterType, setFilterType] = useState('all')
-  const [currentPage, setCurrentPage] = useState(1)
-  const [logsPerPage] = useState(10) // Set how many logs to show per page
+  const { user, loading } = useAuth(); // Get the current user and loading state from the auth hook
+  const [logs, setLogs] = useState([]); // State to hold logs fetched from the backend
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [logsPerPage] = useState(10); // Set how many logs to show per page
 
   useEffect(() => {
+    // if (loading || !user?.) return; // Wait until the user and token are loaded
+    const storedUser = localStorage.getItem('user');
+    const storedToken = localStorage.getItem('authToken');
+    // Decode the token to get user_id and role
+    const decodedToken = jwtDecode(storedToken);
+    const userId = decodedToken.id;
+    const userRole = decodedToken.role;
+
     const fetchLogs = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:5015/sensor-maintenance'); // Your existing endpoint
+        const response = await fetch(`http://127.0.0.1:5015/sensor-maintenance?user_id=${userId}&role=${userRole}`, {
+          headers: {
+            Authorization: `Bearer ${user.token}`, // Pass the token in the Authorization header
+          },
+        });
         if (!response.ok) {
           throw new Error('Failed to fetch logs');
         }
@@ -32,16 +46,17 @@ export default function LogsPage() {
       }
     };
   
-    // Fetch logs initially
+    // Fetch logs when the user and token are ready
     fetchLogs();
-  
     // Set up polling interval
-    const interval = setInterval(fetchLogs, 10000); // Fetch logs every 10 seconds
-  
+    const interval = setInterval(fetchLogs, 10000); // Fetch data every 10 seconds
+
     // Cleanup interval on component unmount
     return () => clearInterval(interval);
-  }, []); // Dependency array left empty to ensure this effect runs only once on mount
+  }, [loading, user]);
   
+
+
   // Filter logs based on the search term and filter type
   const filteredLogs = logs.filter(log => 
     (log.review.toLowerCase().includes(searchTerm.toLowerCase()) ||
