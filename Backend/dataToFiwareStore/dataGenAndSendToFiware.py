@@ -660,4 +660,4 @@ def fetch_maintenance():
 # Run Flask app
 if __name__ == "__main__":
     start_mqtt()
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5050)

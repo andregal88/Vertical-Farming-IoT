@@ -22,18 +22,22 @@ def get_sensor_maintenance_logs():
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor(dictionary=True)
 
-        # SQL query
+        # SQL query to join sensorMaintenance with Sensors to include sensor name
         if sensor_id:
             query = """
-                SELECT * FROM sensorMaintenance
-                WHERE sensor_id = %s
-                ORDER BY timestamp DESC
+                SELECT sm.*, s.name AS sensor_name 
+                FROM sensorMaintenance sm
+                JOIN Sensors s ON sm.sensor_id = s.id
+                WHERE sm.sensor_id = %s
+                ORDER BY sm.timestamp DESC
             """
             cursor.execute(query, (sensor_id,))
         else:
             query = """
-                SELECT * FROM sensorMaintenance
-                ORDER BY timestamp DESC
+                SELECT sm.*, s.name AS sensor_name 
+                FROM sensorMaintenance sm
+                JOIN Sensors s ON sm.sensor_id = s.id
+                ORDER BY sm.timestamp DESC
             """
             cursor.execute(query)
 

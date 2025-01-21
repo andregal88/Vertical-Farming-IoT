@@ -21,6 +21,8 @@ def connect_db():
 
 @app.route('/get_rooms_with_shelves_and_sensors', methods=['GET'])
 def get_rooms_with_shelves_and_sensors():
+    # print("Request Headers:", request.headers["token"])
+    
     connection = connect_db()
     if connection:
         cursor = connection.cursor(dictionary=True)
